@@ -9,7 +9,7 @@ const http = require("http");
 const TOKEN = process.env.BOT_TOKEN;
 
 // O'Z TELEGRAM ID INGIZNI YOZING
-const ADMIN_ID = 123456789;
+const ADMIN_ID = 8582398177;
 
 if (!TOKEN) {
     console.log("❌ BOT_TOKEN topilmadi!");
