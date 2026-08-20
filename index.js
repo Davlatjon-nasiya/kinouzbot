@@ -2,8 +2,15 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 
+// ========================================
+// SOZLAMALAR
+// ========================================
+
 const TOKEN = process.env.BOT_TOKEN;
-const ADMIN_ID = 8582398177;
+
+// SIZNING TELEGRAM ID
+const ADMIN_ID = "858239817";
+
 const PORT = process.env.PORT || 10000;
 
 const PUBLIC_URL =
@@ -11,6 +18,12 @@ const PUBLIC_URL =
     "https://kinouzbot-a04h.onrender.com";
 
 const WEBHOOK_PATH = "/telegram-webhook";
+
+const DATA_FILE = "data.json";
+
+// ========================================
+// BOT TOKEN TEKSHIRISH
+// ========================================
 
 if (!TOKEN) {
     console.log("❌ BOT_TOKEN topilmadi!");
@@ -29,28 +42,29 @@ const DEFAULT_LINKS = [
         link: "https://t.me/qosimjon_maslahat"
     },
     {
-        name: "📸 Instagram — Yakhubov AI",
+        name: "📢 Mandarin Tech",
+        link: "https://t.me/mandarintech"
+    },
+    {
+        name: "📸 Yakhubov AI",
         link: "https://www.instagram.com/yakhubov_ai"
     },
     {
-        name: "📸 Instagram — Mandarin Nasiya",
+        name: "📸 Mandarin Nasiya",
         link: "https://www.instagram.com/mandarin_nasiya"
-    },
-    {
-        name: "📢 Telegram — Mandarin Tech",
-        link: "https://t.me/mandarintech"
     }
 ];
 
 // ========================================
-// MA'LUMOT
+// DATA
 // ========================================
 
-const DATA_FILE = "data.json";
-
 function loadData() {
+
     try {
+
         if (!fs.existsSync(DATA_FILE)) {
+
             return {
                 users: [],
                 links: DEFAULT_LINKS,
@@ -63,15 +77,27 @@ function loadData() {
         );
 
         return {
-            users: data.users || [],
+
+            users: Array.isArray(data.users)
+                ? data.users
+                : [],
+
             links:
-                Array.isArray(data.links) && data.links.length
+                Array.isArray(data.links) &&
+                data.links.length
                     ? data.links
                     : DEFAULT_LINKS,
-            totalStarts: Number(data.totalStarts || 0)
+
+            totalStarts:
+                Number(data.totalStarts || 0)
         };
+
     } catch (error) {
-        console.log("❌ DATA XATO:", error.message);
+
+        console.log(
+            "❌ DATA O'QISH XATOSI:",
+            error.message
+        );
 
         return {
             users: [],
@@ -81,37 +107,51 @@ function loadData() {
     }
 }
 
+// ========================================
+// DATA SAQLASH
+// ========================================
+
 function saveData(data) {
+
     try {
+
         fs.writeFileSync(
             DATA_FILE,
             JSON.stringify(data, null, 2)
         );
+
     } catch (error) {
-        console.log("❌ SAQLASH XATO:", error.message);
+
+        console.log(
+            "❌ DATA SAQLASH XATOSI:",
+            error.message
+        );
     }
 }
 
 // ========================================
-// ADMIN HOLATI
+// ADMIN TEKSHIRISH
 // ========================================
 
-const adminStates = new Map();
-
-function getLinks() {
-    const data = loadData();
-    return data.links || DEFAULT_LINKS;
-}
-
 function isAdmin(userId) {
-    return Number(userId) === Number(ADMIN_ID);
+
+    return String(userId).trim() === "858239817";
 }
+
+// ========================================
+// BUGUNGI USERLAR
+// ========================================
 
 function todayUsers(users) {
-    const today = new Date().toISOString().slice(0, 10);
+
+    const today =
+        new Date()
+            .toISOString()
+            .slice(0, 10);
 
     return users.filter(user =>
-        String(user.date || "").startsWith(today)
+        String(user.date || "")
+            .startsWith(today)
     ).length;
 }
 
@@ -120,75 +160,107 @@ function todayUsers(users) {
 // ========================================
 
 function telegram(method, data) {
+
     return new Promise((resolve, reject) => {
 
-        const body = JSON.stringify(data);
+        const body =
+            JSON.stringify(data);
 
         const req = https.request(
+
             {
                 hostname: "api.telegram.org",
-                path: `/bot${TOKEN}/${method}`,
+
+                path:
+                    `/bot${TOKEN}/${method}`,
+
                 method: "POST",
-                timeout: 15000,
+
+                timeout: 20000,
+
                 headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(body)
+                    "Content-Type":
+                        "application/json",
+
+                    "Content-Length":
+                        Buffer.byteLength(body)
                 }
             },
+
             (res) => {
 
                 let result = "";
 
-                res.on("data", (chunk) => {
-                    result += chunk;
-                });
-
-                res.on("end", () => {
-
-                    try {
-
-                        const json = JSON.parse(result);
-
-                        if (!json.ok) {
-
-                            console.log(
-                                "❌ TELEGRAM API XATO:",
-                                json.description
-                            );
-
-                            reject(
-                                new Error(json.description)
-                            );
-
-                            return;
-                        }
-
-                        resolve(json.result);
-
-                    } catch (error) {
-
-                        reject(error);
+                res.on(
+                    "data",
+                    chunk => {
+                        result +=
+                            chunk.toString();
                     }
-                });
+                );
+
+                res.on(
+                    "end",
+                    () => {
+
+                        try {
+
+                            const json =
+                                JSON.parse(result);
+
+                            if (!json.ok) {
+
+                                console.log(
+                                    "❌ TELEGRAM API:",
+                                    json.description
+                                );
+
+                                reject(
+                                    new Error(
+                                        json.description
+                                    )
+                                );
+
+                                return;
+                            }
+
+                            resolve(
+                                json.result
+                            );
+
+                        } catch (error) {
+
+                            reject(error);
+                        }
+                    }
+                );
             }
         );
 
-        req.on("timeout", () => {
+        req.on(
+            "timeout",
+            () => {
 
-            req.destroy(
-                new Error("Telegram API timeout")
-            );
-        });
+                req.destroy(
+                    new Error(
+                        "Telegram API timeout"
+                    )
+                );
+            }
+        );
 
-        req.on("error", (error) => {
+        req.on(
+            "error",
+            error => {
 
-            console.log(
-                "❌ TELEGRAM ULANISH XATOSI:",
-                error.message
-            );
+                console.log(
+                    "❌ TELEGRAM ULANISH:",
+                    error.message
+                );
 
-            reject(error);
-        });
+                reject(error);
+            }
+        );
 
         req.write(body);
         req.end();
@@ -196,7 +268,7 @@ function telegram(method, data) {
 }
 
 // ========================================
-// XABAR YUBORISH
+// MESSAGE YUBORISH
 // ========================================
 
 async function sendMessage(
@@ -206,12 +278,16 @@ async function sendMessage(
 ) {
 
     const data = {
+
         chat_id: chatId,
+
         text: text
     };
 
     if (keyboard) {
-        data.reply_markup = keyboard;
+
+        data.reply_markup =
+            keyboard;
     }
 
     return telegram(
@@ -221,68 +297,101 @@ async function sendMessage(
 }
 
 // ========================================
-// LINKLAR TUGMASI
+// CALLBACK JAVOB
 // ========================================
 
-function getKeyboard() {
+async function answerCallback(
+    queryId,
+    text = ""
+) {
 
-    const links = getLinks();
+    try {
+
+        await telegram(
+            "answerCallbackQuery",
+            {
+                callback_query_id:
+                    queryId,
+
+                text: text
+            }
+        );
+
+    } catch (error) {
+
+        console.log(
+            "❌ CALLBACK XATO:",
+            error.message
+        );
+    }
+}
+
+// ========================================
+// FOYDALANUVCHI LINKLARI
+// ========================================
+
+function getUserKeyboard() {
+
+    const data =
+        loadData();
 
     const buttons = [];
 
-    for (const item of links) {
+    for (
+        const item of data.links
+    ) {
 
         buttons.push([
+
             {
                 text: item.name,
+
                 url: item.link
             }
+
         ]);
     }
 
     buttons.push([
+
         {
             text: "✅ Tekshirish",
+
             callback_data: "CHECK"
         }
+
     ]);
 
     return {
-        inline_keyboard: buttons
+        inline_keyboard:
+            buttons
     };
 }
 
 // ========================================
-// KANALLAR
+// KANAL / INSTAGRAM OYNASI
 // ========================================
 
-async function showChannels(chatId) {
-
-    console.log(
-        "📨 LINKLAR YUBORILMOQDA:",
-        chatId
-    );
+async function showChannels(
+    chatId
+) {
 
     await sendMessage(
+
         chatId,
 
-        `👋 Assalomu alaykum!
+`👋 Assalomu alaykum!
 
 🤖 Botdan foydalanish uchun quyidagi sahifalarga obuna bo'ling 👇
 
-1️⃣ Telegram kanalga o'ting
-2️⃣ Instagram sahifalarga o'ting
-3️⃣ Hammasiga obuna bo'ling
-4️⃣ Keyin "✅ Tekshirish" tugmasini bosing
+📢 Telegram kanalga obuna bo'ling
+📸 Instagram sahifalarga obuna bo'ling
 
-⚠️ Barcha sahifalarga obuna bo'lganingizdan keyin "Tekshirish"ni bosing.`,
+Hammasiga obuna bo'lgach:
 
-        getKeyboard()
-    );
+✅ "Tekshirish" tugmasini bosing.`,
 
-    console.log(
-        "✅ LINKLAR YUBORILDI:",
-        chatId
+        getUserKeyboard()
     );
 }
 
@@ -290,71 +399,107 @@ async function showChannels(chatId) {
 // ADMIN PANEL
 // ========================================
 
-async function adminPanel(chatId) {
+async function adminPanel(
+    chatId
+) {
+
+    console.log(
+        "👨‍💼 ADMIN PANEL OCHILDI:",
+        chatId
+    );
 
     await sendMessage(
+
         chatId,
 
-        `👨‍💼 ADMIN PANEL
+`👨‍💼 ADMIN PANEL
 
 Kerakli bo'limni tanlang 👇`,
 
         {
+
             inline_keyboard: [
 
                 [
-                    {
-                        text: "📢 Linklar",
-                        callback_data: "LINKS"
-                    },
-                    {
-                        text: "📊 Statistika",
-                        callback_data: "STATS"
-                    }
-                ],
 
-                [
                     {
-                        text: "➕ Link qo'shish",
-                        callback_data: "ADD_LINK"
-                    }
-                ],
+                        text:
+                            "📢 Linklar",
 
-                [
-                    {
-                        text: "✏️ Linkni o'zgartirish",
-                        callback_data: "EDIT_LINK"
+                        callback_data:
+                            "LINKS"
                     },
 
                     {
-                        text: "🗑 Link o'chirish",
-                        callback_data: "DELETE_LINK"
+                        text:
+                            "📊 Statistika",
+
+                        callback_data:
+                            "STATS"
                     }
+
+                ],
+
+                [
+
+                    {
+                        text:
+                            "➕ Link qo'shish",
+
+                        callback_data:
+                            "ADD_LINK"
+                    }
+
+                ],
+
+                [
+
+                    {
+                        text:
+                            "✏️ Link o'zgartirish",
+
+                        callback_data:
+                            "EDIT_LINK"
+                    },
+
+                    {
+                        text:
+                            "🗑 Link o'chirish",
+
+                        callback_data:
+                            "DELETE_LINK"
+                    }
+
                 ]
+
             ]
+
         }
     );
 }
 
 // ========================================
-// ADMIN LINKLARINI KO'RISH
+// ADMIN LINKLAR
 // ========================================
 
-async function showAdminLinks(chatId) {
+async function showAdminLinks(
+    chatId
+) {
 
-    const links = getLinks();
+    const data =
+        loadData();
 
     let text =
         "📢 BOT LINKLARI\n\n";
 
-    if (!links.length) {
+    if (!data.links.length) {
 
         text +=
-            "Hozircha link yo'q.";
+            "❌ Linklar yo'q.";
 
     } else {
 
-        links.forEach(
+        data.links.forEach(
             (item, index) => {
 
                 text +=
@@ -366,9 +511,6 @@ async function showAdminLinks(chatId) {
         );
     }
 
-    text +=
-        "\n🔙 /admin — admin panel";
-
     await sendMessage(
         chatId,
         text
@@ -376,24 +518,21 @@ async function showAdminLinks(chatId) {
 }
 
 // ========================================
-// UPDATE
+// ADMIN HOLATLARI
 // ========================================
 
-async function processUpdate(update) {
+const adminStates =
+    new Map();
+
+// ========================================
+// UPDATE ISHLASH
+// ========================================
+
+async function processUpdate(
+    update
+) {
 
     try {
-
-        console.log(
-            "=============================="
-        );
-
-        console.log(
-            "📩 TELEGRAM UPDATE KELDI"
-        );
-
-        console.log(
-            "=============================="
-        );
 
         // ==================================
         // MESSAGE
@@ -410,6 +549,17 @@ async function processUpdate(update) {
             const userId =
                 msg.from.id;
 
+            const text =
+                msg.text || "";
+
+            console.log(
+                "================================"
+            );
+
+            console.log(
+                "📩 TELEGRAM UPDATE KELDI"
+            );
+
             console.log(
                 "👤 USER:",
                 userId
@@ -417,50 +567,114 @@ async function processUpdate(update) {
 
             console.log(
                 "💬 TEXT:",
-                msg.text
+                text
             );
 
             // ==================================
-            // ADMIN HOLATI
+            // ADMIN / ADMIN PANEL
             // ==================================
 
-            if (isAdmin(userId)) {
+            if (
+                text === "/admin"
+            ) {
+
+                console.log(
+                    "👨‍💼 ADMIN BUYRUG'I KELDI"
+                );
+
+                console.log(
+                    "USER ID:",
+                    userId
+                );
+
+                console.log(
+                    "ADMIN ID:",
+                    ADMIN_ID
+                );
+
+                // QAT'IY ADMIN TEKSHIRUV
+
+                if (
+                    String(userId).trim()
+                    !==
+                    "858239817"
+                ) {
+
+                    console.log(
+                        "❌ ADMIN EMAS"
+                    );
+
+                    await sendMessage(
+                        chatId,
+                        "❌ Siz admin emassiz."
+                    );
+
+                    return;
+                }
+
+                console.log(
+                    "✅ ADMIN TASDIQLANDI"
+                );
+
+                await adminPanel(
+                    chatId
+                );
+
+                console.log(
+                    "✅ ADMIN PANEL YUBORILDI"
+                );
+
+                return;
+            }
+
+            // ==================================
+            // ADMIN MESSAGE HOLATI
+            // ==================================
+
+            if (
+                isAdmin(userId)
+            ) {
 
                 const state =
-                    adminStates.get(userId);
+                    adminStates.get(
+                        userId
+                    );
 
                 if (
                     state &&
-                    msg.text &&
-                    !msg.text.startsWith("/")
+                    !text.startsWith("/")
                 ) {
 
                     const data =
                         loadData();
 
-                    // ==============================
+                    // =========================
                     // LINK QO'SHISH
-                    // ==============================
+                    // =========================
 
                     if (
-                        state.action === "ADD_LINK"
+                        state.action
+                        ===
+                        "ADD_LINK"
                     ) {
 
                         const parts =
-                            msg.text
+                            text
                                 .split("|")
-                                .map(x => x.trim());
+                                .map(
+                                    x =>
+                                        x.trim()
+                                );
 
                         if (
-                            parts.length < 2 ||
-                            !parts[0] ||
-                            !parts[1]
+                            parts.length < 2
                         ) {
 
                             await sendMessage(
+
                                 chatId,
 
-                                `❌ Format xato.
+`❌ Format xato.
 
 Shunday yozing:
 
@@ -475,8 +689,13 @@ Masalan:
                         }
 
                         data.links.push({
-                            name: parts[0],
-                            link: parts[1]
+
+                            name:
+                                parts[0],
+
+                            link:
+                                parts[1]
+
                         });
 
                         saveData(data);
@@ -487,7 +706,7 @@ Masalan:
 
                         await sendMessage(
                             chatId,
-                            "✅ Link muvaffaqiyatli qo'shildi."
+                            "✅ Link qo'shildi!"
                         );
 
                         await adminPanel(
@@ -497,26 +716,31 @@ Masalan:
                         return;
                     }
 
-                    // ==============================
+                    // =========================
                     // LINK O'CHIRISH
-                    // ==============================
+                    // =========================
 
                     if (
-                        state.action === "DELETE_LINK"
+                        state.action
+                        ===
+                        "DELETE_LINK"
                     ) {
 
                         const index =
-                            Number(msg.text.trim()) - 1;
+                            Number(text) - 1;
 
                         if (
-                            !Number.isInteger(index) ||
+                            !Number.isInteger(
+                                index
+                            ) ||
                             index < 0 ||
-                            index >= data.links.length
+                            index >=
+                                data.links.length
                         ) {
 
                             await sendMessage(
                                 chatId,
-                                "❌ Raqam noto'g'ri. Masalan: 2"
+                                "❌ Raqam noto'g'ri."
                             );
 
                             return;
@@ -535,9 +759,10 @@ Masalan:
                         );
 
                         await sendMessage(
+
                             chatId,
 
-                            `🗑 Link o'chirildi:
+`🗑 Link o'chirildi:
 
 ${deleted.name}`
                         );
@@ -549,27 +774,33 @@ ${deleted.name}`
                         return;
                     }
 
-                    // ==============================
+                    // =========================
                     // LINK O'ZGARTIRISH
-                    // ==============================
+                    // =========================
 
                     if (
-                        state.action === "EDIT_LINK"
+                        state.action
+                        ===
+                        "EDIT_LINK"
                     ) {
 
                         const parts =
-                            msg.text
+                            text
                                 .split("|")
-                                .map(x => x.trim());
+                                .map(
+                                    x =>
+                                        x.trim()
+                                );
 
                         if (
                             parts.length < 3
                         ) {
 
                             await sendMessage(
+
                                 chatId,
 
-                                `❌ Format xato.
+`❌ Format xato.
 
 Shunday yozing:
 
@@ -584,12 +815,17 @@ Masalan:
                         }
 
                         const index =
-                            Number(parts[0]) - 1;
+                            Number(
+                                parts[0]
+                            ) - 1;
 
                         if (
-                            !Number.isInteger(index) ||
+                            !Number.isInteger(
+                                index
+                            ) ||
                             index < 0 ||
-                            index >= data.links.length
+                            index >=
+                                data.links.length
                         ) {
 
                             await sendMessage(
@@ -601,8 +837,13 @@ Masalan:
                         }
 
                         data.links[index] = {
-                            name: parts[1],
-                            link: parts[2]
+
+                            name:
+                                parts[1],
+
+                            link:
+                                parts[2]
+
                         };
 
                         saveData(data);
@@ -613,7 +854,7 @@ Masalan:
 
                         await sendMessage(
                             chatId,
-                            "✅ Link o'zgartirildi."
+                            "✅ Link o'zgartirildi!"
                         );
 
                         await adminPanel(
@@ -630,8 +871,9 @@ Masalan:
             // ==================================
 
             if (
-                msg.text &&
-                msg.text.startsWith("/start")
+                text.startsWith(
+                    "/start"
+                )
             ) {
 
                 console.log(
@@ -643,37 +885,42 @@ Masalan:
 
                 data.totalStarts =
                     Number(
-                        data.totalStarts || 0
+                        data.totalStarts
                     ) + 1;
 
                 const exists =
                     data.users.some(
                         user =>
-                            user.id === userId
+                            String(
+                                user.id
+                            ) ===
+                            String(
+                                userId
+                            )
                     );
 
                 if (!exists) {
 
                     data.users.push({
 
-                        id: userId,
+                        id:
+                            userId,
 
                         name:
-                            msg.from.first_name ||
+                            msg.from
+                                .first_name ||
                             "",
 
                         username:
-                            msg.from.username ||
+                            msg.from
+                                .username ||
                             "",
 
                         date:
-                            new Date().toISOString()
-                    });
+                            new Date()
+                                .toISOString()
 
-                    console.log(
-                        "👤 YANGI USER:",
-                        userId
-                    );
+                    });
                 }
 
                 saveData(data);
@@ -685,36 +932,11 @@ Masalan:
                 return;
             }
 
-            // ==================================
-            // ADMIN
-            // ==================================
-
-            if (
-                msg.text === "/admin"
-            ) {
-
-                if (
-                    !isAdmin(userId)
-                ) {
-
-                    await sendMessage(
-                        chatId,
-                        "❌ Siz admin emassiz."
-                    );
-
-                    return;
-                }
-
-                await adminPanel(
-                    chatId
-                );
-
-                return;
-            }
+            return;
         }
 
         // ==================================
-        // BUTTON
+        // CALLBACK QUERY
         // ==================================
 
         if (
@@ -734,30 +956,24 @@ Masalan:
                 query.from.id;
 
             console.log(
-                "🔘 TUGMA:",
+                "================================"
+            );
+
+            console.log(
+                "🔘 TUGMA BOSILDI:",
                 action
             );
 
-            // Loadingni to'xtatish
+            console.log(
+                "👤 USER:",
+                userId
+            );
 
-            try {
+            // TELEGRAM LOADINGNI O'CHIRISH
 
-                await telegram(
-                    "answerCallbackQuery",
-
-                    {
-                        callback_query_id:
-                            query.id
-                    }
-                );
-
-            } catch (error) {
-
-                console.log(
-                    "Callback xato:",
-                    error.message
-                );
-            }
+            await answerCallback(
+                query.id
+            );
 
             // ==================================
             // CHECK
@@ -768,11 +984,12 @@ Masalan:
             ) {
 
                 await sendMessage(
+
                     chatId,
 
-                    `❌ Afsuski, hali barcha sahifalarga obuna bo'lmagansiz!
+`❌ Hali barcha sahifalarga obuna bo'lmagansiz!
 
-Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
+Iltimos, yuqoridagi barcha havolalarga o'tib chiqing va obuna bo'ling.`
                 );
 
                 await showChannels(
@@ -783,20 +1000,28 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
             }
 
             // ==================================
-            // ADMIN TEKSHIRISH
+            // ADMIN TEKSHIRUV
             // ==================================
 
             if (
                 !isAdmin(userId)
             ) {
 
+                console.log(
+                    "❌ CALLBACK ADMIN EMAS"
+                );
+
                 await sendMessage(
                     chatId,
-                    "❌ Sizda admin huquqi yo'q."
+                    "❌ Siz admin emassiz."
                 );
 
                 return;
             }
+
+            console.log(
+                "✅ CALLBACK ADMIN"
+            );
 
             // ==================================
             // LINKLAR
@@ -814,6 +1039,42 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
             }
 
             // ==================================
+            // STATISTIKA
+            // ==================================
+
+            if (
+                action === "STATS"
+            ) {
+
+                const data =
+                    loadData();
+
+                await sendMessage(
+
+                    chatId,
+
+`📊 BOT STATISTIKASI
+
+👥 Jami foydalanuvchilar:
+${data.users.length}
+
+🆕 Bugun kirganlar:
+${todayUsers(data.users)}
+
+▶️ Jami /start:
+${data.totalStarts}
+
+🔗 Linklar:
+${data.links.length}
+
+🤖 Bot:
+✅ Ishlayapti`
+                );
+
+                return;
+            }
+
+            // ==================================
             // LINK QO'SHISH
             // ==================================
 
@@ -822,7 +1083,9 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
             ) {
 
                 adminStates.set(
+
                     userId,
+
                     {
                         action:
                             "ADD_LINK"
@@ -830,9 +1093,10 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
                 );
 
                 await sendMessage(
+
                     chatId,
 
-                    `➕ Yangi link qo'shish
+`➕ LINK QO'SHISH
 
 Shunday yozing:
 
@@ -858,7 +1122,7 @@ Masalan:
                     getLinks();
 
                 let text =
-                    "🗑 Qaysi linkni o'chiramiz?\n\n";
+                    "🗑 LINK O'CHIRISH\n\n";
 
                 links.forEach(
                     (item, index) => {
@@ -869,10 +1133,12 @@ Masalan:
                 );
 
                 text +=
-                    "\nFaqat raqamini yuboring.";
+                    "\nO'chirish uchun raqam yuboring.";
 
                 adminStates.set(
+
                     userId,
+
                     {
                         action:
                             "DELETE_LINK"
@@ -899,7 +1165,7 @@ Masalan:
                     getLinks();
 
                 let text =
-                    "✏️ Qaysi linkni o'zgartiramiz?\n\n";
+                    "✏️ LINK O'ZGARTIRISH\n\n";
 
                 links.forEach(
                     (item, index) => {
@@ -910,12 +1176,15 @@ Masalan:
                 );
 
                 text +=
-                    `\nShunday yozing:
+
+`\nShunday yozing:
 
 Raqam | Yangi nom | Yangi link`;
 
                 adminStates.set(
+
                     userId,
+
                     {
                         action:
                             "EDIT_LINK"
@@ -929,36 +1198,6 @@ Raqam | Yangi nom | Yangi link`;
 
                 return;
             }
-
-            // ==================================
-            // STATISTIKA
-            // ==================================
-
-            if (
-                action === "STATS"
-            ) {
-
-                const data =
-                    loadData();
-
-                await sendMessage(
-                    chatId,
-
-                    `📊 BOT STATISTIKASI
-
-👥 Jami foydalanuvchilar: ${data.users.length}
-
-🆕 Bugun kirganlar: ${todayUsers(data.users)}
-
-▶️ Jami /start: ${data.totalStarts || 0}
-
-🔗 Linklar: ${getLinks().length}
-
-🤖 Bot: ✅ Ishlayapti`
-                );
-
-                return;
-            }
         }
 
     } catch (error) {
@@ -967,11 +1206,15 @@ Raqam | Yangi nom | Yangi link`;
             "❌ UPDATE XATOSI:",
             error.message
         );
+
+        console.log(
+            error.stack
+        );
     }
 }
 
 // ========================================
-// WEBHOOK SERVER
+// WEB SERVER
 // ========================================
 
 const server =
@@ -984,7 +1227,9 @@ const server =
                 req.url
             );
 
-            // Render health check
+            // ==================================
+            // GET
+            // ==================================
 
             if (
                 req.method === "GET"
@@ -1006,7 +1251,7 @@ const server =
             }
 
             // ==================================
-            // TELEGRAM WEBHOOK
+            // WEBHOOK
             // ==================================
 
             if (
@@ -1032,23 +1277,25 @@ const server =
                         try {
 
                             const update =
-                                JSON.parse(body);
-
-                            console.log(
-                                "📩 UPDATE QABUL QILINDI"
-                            );
+                                JSON.parse(
+                                    body
+                                );
 
                             // Telegramga darhol OK
 
                             res.writeHead(
-                                200
+                                200,
+                                {
+                                    "Content-Type":
+                                        "text/plain"
+                                }
                             );
 
                             res.end(
                                 "OK"
                             );
 
-                            // Update ishlanadi
+                            // Update ishlash
 
                             await processUpdate(
                                 update
@@ -1091,12 +1338,15 @@ const server =
     );
 
 // ========================================
-// SERVER
+// SERVER ISHGA TUSHISHI
 // ========================================
 
 server.listen(
+
     PORT,
+
     "0.0.0.0",
+
     async () => {
 
         console.log(
