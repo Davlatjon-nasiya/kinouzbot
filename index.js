@@ -3,36 +3,40 @@ const fs = require("fs");
 const http = require("http");
 
 // ==========================================
-// TOKEN
+// SOZLAMALAR
 // ==========================================
 
 const TOKEN = process.env.BOT_TOKEN;
 
-// O'Z TELEGRAM ID INGIZNI YOZING
+// O'Z TELEGRAM ID INGIZ
 const ADMIN_ID = 8582398177;
+
+// ==========================================
+// RENDER SERVER
+// ==========================================
+
+const PORT = process.env.PORT || 10000;
+
+const server = http.createServer((req, res) => {
+    res.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8"
+    });
+
+    res.end("🤖 Telegram bot ishlayapti!");
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+    console.log("🌐 Server " + PORT + " portda ishlayapti");
+});
+
+// ==========================================
+// TOKEN TEKSHIRISH
+// ==========================================
 
 if (!TOKEN) {
     console.log("❌ BOT_TOKEN topilmadi!");
     process.exit(1);
 }
-
-// ==========================================
-// RENDER UCHUN SERVER
-// ==========================================
-
-const PORT = process.env.PORT || 3000;
-
-const server = http.createServer((req, res) => {
-    res.writeHead(200, {
-        "Content-Type": "text/plain"
-    });
-
-    res.end("Telegram bot ishlayapti!");
-});
-
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🌐 Server ${PORT} portda ishlayapti`);
-});
 
 // ==========================================
 // TELEGRAM BOT
@@ -50,7 +54,7 @@ console.log("✅ Telegram bot ishga tushdi");
 
 const DATA_FILE = "data.json";
 
-const defaultData = {
+const DEFAULT_DATA = {
     channels: [],
     users: [],
     instagram: "",
@@ -61,38 +65,45 @@ const defaultData = {
 function loadData() {
 
     if (!fs.existsSync(DATA_FILE)) {
-        fs.writeFileSync(
-            DATA_FILE,
-            JSON.stringify(defaultData, null, 2)
-        );
-
-        return { ...defaultData };
+        saveData(DEFAULT_DATA);
+        return { ...DEFAULT_DATA };
     }
 
     try {
+
         const data = JSON.parse(
             fs.readFileSync(DATA_FILE, "utf8")
         );
 
-        data.channels = data.channels || [];
-        data.users = data.users || [];
-        data.instagram = data.instagram || "";
-        data.website = data.website || "";
-        data.contact = data.contact || "";
-
-        return data;
+        return {
+            channels: data.channels || [],
+            users: data.users || [],
+            instagram: data.instagram || "",
+            website: data.website || "",
+            contact: data.contact || ""
+        };
 
     } catch (error) {
-        console.log("❌ data.json xatosi");
-        return { ...defaultData };
+
+        console.log("❌ data.json o'qishda xato");
+
+        return {
+            channels: [],
+            users: [],
+            instagram: "",
+            website: "",
+            contact: ""
+        };
     }
 }
 
 function saveData(data) {
+
     fs.writeFileSync(
         DATA_FILE,
         JSON.stringify(data, null, 2)
     );
+
 }
 
 // ==========================================
@@ -102,15 +113,16 @@ function saveData(data) {
 const adminState = {};
 
 // ==========================================
-// OBUNA TUGMALARI
+// FOYDALANUVCHI MENYUSI
 // ==========================================
 
-function subscriptionKeyboard() {
+function userKeyboard() {
 
     const data = loadData();
 
     const buttons = [];
 
+    // Kanallar
     data.channels.forEach((channel) => {
 
         buttons.push([
@@ -124,39 +136,45 @@ function subscriptionKeyboard() {
 
     // Instagram
     if (data.instagram) {
+
         buttons.push([
             {
                 text: "📸 Instagram",
                 url: data.instagram
             }
         ]);
+
     }
 
     // Sayt
     if (data.website) {
+
         buttons.push([
             {
                 text: "🌐 Sayt",
                 url: data.website
             }
         ]);
+
     }
 
     // Aloqa
     if (data.contact) {
+
         buttons.push([
             {
                 text: "📞 Aloqa",
                 url: data.contact
             }
         ]);
+
     }
 
     // Tekshirish
     buttons.push([
         {
             text: "✅ Tekshirish",
-            callback_data: "check_subscription"
+            callback_data: "CHECK"
         }
     ]);
 
@@ -168,7 +186,7 @@ function subscriptionKeyboard() {
 }
 
 // ==========================================
-// KANALLARNI CHIQARISH
+// KANALLARNI KO'RSATISH
 // ==========================================
 
 function showChannels(chatId) {
@@ -179,26 +197,30 @@ function showChannels(chatId) {
 
         return bot.sendMessage(
             chatId,
-            "⚠️ Hozircha kanal qo‘shilmagan."
+            "⚠️ Hozircha kanal qo'shilmagan."
         );
+
     }
 
-    bot.sendMessage(
+    return bot.sendMessage(
         chatId,
         `👋 Assalomu alaykum!
 
-Botdan foydalanish uchun quyidagi kanallarga obuna bo‘ling 👇
+Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇
 
-Obuna bo‘lgach, «✅ Tekshirish» tugmasini bosing.`,
-        subscriptionKeyboard()
+Obuna bo'lgach, "✅ Tekshirish" tugmasini bosing.`,
+        userKeyboard()
     );
+
 }
 
 // ==========================================
 // START
 // ==========================================
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/^\/start$/, (msg) => {
+
+    console.log("▶️ START:", msg.from.id);
 
     const data = loadData();
 
@@ -218,76 +240,92 @@ bot.onText(/\/start/, (msg) => {
         });
 
         saveData(data);
+
+        console.log(
+            "👤 Yangi foydalanuvchi:",
+            userId
+        );
     }
 
     showChannels(msg.chat.id);
+
 });
 
 // ==========================================
 // ADMIN PANEL
 // ==========================================
 
-function adminPanel() {
+function sendAdminPanel(chatId) {
 
-    return {
-        reply_markup: {
-            inline_keyboard: [
+    return bot.sendMessage(
+        chatId,
+        `👨‍💼 ADMIN PANEL
 
-                [
-                    {
-                        text: "➕ Kanal qo‘shish",
-                        callback_data: "add_channel"
-                    }
-                ],
+Kerakli bo'limni tanlang 👇`,
+        {
+            reply_markup: {
+                inline_keyboard: [
 
-                [
-                    {
-                        text: "🗑 Kanal o‘chirish",
-                        callback_data: "delete_channel"
-                    },
-                    {
-                        text: "📋 Kanallar",
-                        callback_data: "channel_list"
-                    }
-                ],
+                    [
+                        {
+                            text: "➕ Kanal qo'shish",
+                            callback_data: "ADD_CHANNEL"
+                        }
+                    ],
 
-                [
-                    {
-                        text: "📸 Instagram",
-                        callback_data: "edit_instagram"
-                    }
-                ],
+                    [
+                        {
+                            text: "🗑 Kanal o'chirish",
+                            callback_data: "DELETE_CHANNEL"
+                        },
+                        {
+                            text: "📋 Kanallar",
+                            callback_data: "CHANNEL_LIST"
+                        }
+                    ],
 
-                [
-                    {
-                        text: "🌐 Sayt",
-                        callback_data: "edit_website"
-                    }
-                ],
+                    [
+                        {
+                            text: "📸 Instagram",
+                            callback_data: "INSTAGRAM"
+                        }
+                    ],
 
-                [
-                    {
-                        text: "📞 Aloqa",
-                        callback_data: "edit_contact"
-                    }
-                ],
+                    [
+                        {
+                            text: "🌐 Sayt",
+                            callback_data: "WEBSITE"
+                        }
+                    ],
 
-                [
-                    {
-                        text: "📊 Statistika",
-                        callback_data: "statistics"
-                    }
+                    [
+                        {
+                            text: "📞 Aloqa",
+                            callback_data: "CONTACT"
+                        }
+                    ],
+
+                    [
+                        {
+                            text: "📊 Statistika",
+                            callback_data: "STATS"
+                        }
+                    ]
+
                 ]
-            ]
+            }
         }
-    };
+    );
+
 }
 
 // ==========================================
-// ADMIN
+// /ADMIN
 // ==========================================
 
-bot.onText(/\/admin/, (msg) => {
+bot.onText(/^\/admin$/, (msg) => {
+
+    console.log("👨‍💼 ADMIN:", msg.from.id);
 
     if (msg.from.id !== ADMIN_ID) {
 
@@ -295,100 +333,119 @@ bot.onText(/\/admin/, (msg) => {
             msg.chat.id,
             "❌ Siz admin emassiz."
         );
+
     }
 
     delete adminState[msg.from.id];
 
-    bot.sendMessage(
-        msg.chat.id,
-        `👨‍💼 ADMIN PANEL
+    sendAdminPanel(msg.chat.id);
 
-Kerakli bo‘limni tanlang 👇`,
-        adminPanel()
-    );
 });
 
 // ==========================================
-// CALLBACK
+// CALLBACK QUERY
 // ==========================================
 
-bot.on("callback_query", async (query) => {
+bot.on("callback_query", (query) => {
 
-    const chatId = query.message.chat.id;
+    console.log(
+        "🔘 TUGMA BOSILDI:",
+        query.data,
+        "USER:",
+        query.from.id
+    );
+
     const userId = query.from.id;
+    const chatId = query.message.chat.id;
     const action = query.data;
+
+    // ======================================
+    // ENG MUHIM:
+    // TUGMAGA DARHOL JAVOB
+    // ======================================
+
+    bot.answerCallbackQuery(query.id)
+        .catch((error) => {
+            console.log(
+                "Callback javob xatosi:",
+                error.message
+            );
+        });
 
     // ======================================
     // TEKSHIRISH
     // ======================================
 
-    if (action === "check_subscription") {
+    if (action === "CHECK") {
 
-        await bot.answerCallbackQuery(query.id);
-
-        await bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            `❌ Afsuski, hali barcha kanallarga obuna bo‘lmagansiz!
+            `❌ Afsuski, hali barcha kanallarga obuna bo'lmagansiz!
 
-👇 Kanallarga obuna bo‘lib, yana tekshiring.`
+👇 Kanallarga obuna bo'lib, yana tekshiring.`
         );
 
-        return showChannels(chatId);
+        setTimeout(() => {
+            showChannels(chatId);
+        }, 300);
+
+        return;
     }
 
     // ======================================
-    // ADMIN
+    // ADMIN TEKSHIRISH
     // ======================================
 
     if (userId !== ADMIN_ID) {
 
-        return bot.answerCallbackQuery(
-            query.id,
-            {
-                text: "❌ Ruxsat yo‘q!",
-                show_alert: true
-            }
+        bot.sendMessage(
+            chatId,
+            "❌ Sizda admin huquqi yo'q."
         );
+
+        return;
     }
 
-    await bot.answerCallbackQuery(query.id);
-
     // ======================================
-    // KANAL QO‘SHISH
+    // KANAL QO'SHISH
     // ======================================
 
-    if (action === "add_channel") {
+    if (action === "ADD_CHANNEL") {
 
         adminState[userId] = {
             step: "channel_name"
         };
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            `➕ KANAL QO‘SHISH
+            `➕ KANAL QO'SHISH
 
 📢 Kanal nomini yuboring.
 
 Masalan:
 
-Kino Uz`
+Mandarin Tech`
         );
+
+        return;
     }
 
     // ======================================
-    // KANALLAR
+    // KANALLAR RO'YXATI
     // ======================================
 
-    if (action === "channel_list") {
+    if (action === "CHANNEL_LIST") {
 
         const data = loadData();
 
         if (data.channels.length === 0) {
 
-            return bot.sendMessage(
+            bot.sendMessage(
                 chatId,
-                "📭 Hozircha kanal yo‘q."
+                "📭 Hozircha kanal qo'shilmagan."
             );
+
+            return;
         }
 
         let text = "📋 KANALLAR:\n\n";
@@ -396,70 +453,82 @@ Kino Uz`
         data.channels.forEach((channel, index) => {
 
             text += `${index + 1}. ${channel.name}\n`;
-            text += `${channel.link}\n\n`;
+            text += `🔗 ${channel.link}\n\n`;
 
         });
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
             text
         );
+
+        return;
     }
 
     // ======================================
-    // KANAL O‘CHIRISH
+    // KANAL O'CHIRISH
     // ======================================
 
-    if (action === "delete_channel") {
+    if (action === "DELETE_CHANNEL") {
 
         const data = loadData();
 
         if (data.channels.length === 0) {
 
-            return bot.sendMessage(
+            bot.sendMessage(
                 chatId,
-                "📭 O‘chirish uchun kanal yo‘q."
+                "📭 O'chirish uchun kanal yo'q."
             );
+
+            return;
         }
 
-        const buttons = data.channels.map(
-            (channel, index) => [
+        const buttons = [];
+
+        data.channels.forEach((channel, index) => {
+
+            buttons.push([
                 {
                     text: "❌ " + channel.name,
-                    callback_data: "remove_" + index
+                    callback_data: "REMOVE_" + index
                 }
-            ]
-        );
+            ]);
 
-        return bot.sendMessage(
+        });
+
+        bot.sendMessage(
             chatId,
-            "🗑 O‘chiriladigan kanalni tanlang:",
+            "🗑 O'chiriladigan kanalni tanlang:",
             {
                 reply_markup: {
                     inline_keyboard: buttons
                 }
             }
         );
+
+        return;
     }
 
     // ======================================
-    // O‘CHIRISH
+    // KANALNI O'CHIRISH
     // ======================================
 
-    if (action.startsWith("remove_")) {
+    if (action.startsWith("REMOVE_")) {
 
-        const index = parseInt(
-            action.replace("remove_", "")
+        const index = Number(
+            action.replace("REMOVE_", "")
         );
 
         const data = loadData();
 
         if (!data.channels[index]) {
 
-            return bot.sendMessage(
+            bot.sendMessage(
                 chatId,
                 "❌ Kanal topilmadi."
             );
+
+            return;
         }
 
         const removed = data.channels[index];
@@ -468,26 +537,31 @@ Kino Uz`
 
         saveData(data);
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            `✅ Kanal o‘chirildi:
+            `✅ Kanal o'chirildi!
 
-📢 ${removed.name}`,
-            adminPanel()
+📢 ${removed.name}`
         );
+
+        setTimeout(() => {
+            sendAdminPanel(chatId);
+        }, 300);
+
+        return;
     }
 
     // ======================================
     // INSTAGRAM
     // ======================================
 
-    if (action === "edit_instagram") {
+    if (action === "INSTAGRAM") {
 
         adminState[userId] = {
             step: "instagram"
         };
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
             `📸 Instagram linkini yuboring.
 
@@ -495,19 +569,21 @@ Masalan:
 
 https://instagram.com/username`
         );
+
+        return;
     }
 
     // ======================================
     // SAYT
     // ======================================
 
-    if (action === "edit_website") {
+    if (action === "WEBSITE") {
 
         adminState[userId] = {
             step: "website"
         };
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
             `🌐 Sayt linkini yuboring.
 
@@ -515,19 +591,21 @@ Masalan:
 
 https://sayt.uz`
         );
+
+        return;
     }
 
     // ======================================
     // ALOQA
     // ======================================
 
-    if (action === "edit_contact") {
+    if (action === "CONTACT") {
 
         adminState[userId] = {
             step: "contact"
         };
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
             `📞 Aloqa linkini yuboring.
 
@@ -535,27 +613,32 @@ Masalan:
 
 https://t.me/admin`
         );
+
+        return;
     }
 
     // ======================================
     // STATISTIKA
     // ======================================
 
-    if (action === "statistics") {
+    if (action === "STATS") {
 
         const data = loadData();
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
             `📊 BOT STATISTIKASI
 
-👥 Jami kirganlar: ${data.users.length}
+👥 Jami foydalanuvchilar: ${data.users.length}
 
 📢 Kanallar: ${data.channels.length}
 
-🤖 Bot: ✅ Ishlayapti`
+🤖 Bot holati: ✅ Ishlayapti`
         );
+
+        return;
     }
+
 });
 
 // ==========================================
@@ -593,9 +676,9 @@ bot.on("message", (msg) => {
             name: msg.text.trim()
         };
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            `✅ Kanal nomi saqlandi:
+            `✅ Kanal nomi:
 
 ${msg.text}
 
@@ -605,6 +688,8 @@ Masalan:
 
 https://t.me/kanal`
         );
+
+        return;
     }
 
     // ======================================
@@ -620,14 +705,16 @@ https://t.me/kanal`
             !link.startsWith("http://t.me/")
         ) {
 
-            return bot.sendMessage(
+            bot.sendMessage(
                 chatId,
-                `❌ Link noto‘g‘ri.
+                `❌ Link noto'g'ri.
 
 Masalan:
 
 https://t.me/kanal`
             );
+
+            return;
         }
 
         const data = loadData();
@@ -641,15 +728,20 @@ https://t.me/kanal`
 
         delete adminState[userId];
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            `✅ KANAL QO‘SHILDI!
+            `✅ KANAL MUVAFFAQIYATLI QO'SHILDI!
 
 📢 ${state.name}
 
-🔗 ${link}`,
-            adminPanel()
+🔗 ${link}`
         );
+
+        setTimeout(() => {
+            sendAdminPanel(chatId);
+        }, 300);
+
+        return;
     }
 
     // ======================================
@@ -666,11 +758,16 @@ https://t.me/kanal`
 
         delete adminState[userId];
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            "✅ Instagram linki saqlandi.",
-            adminPanel()
+            "✅ Instagram linki saqlandi."
         );
+
+        setTimeout(() => {
+            sendAdminPanel(chatId);
+        }, 300);
+
+        return;
     }
 
     // ======================================
@@ -687,11 +784,16 @@ https://t.me/kanal`
 
         delete adminState[userId];
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            "✅ Sayt linki saqlandi.",
-            adminPanel()
+            "✅ Sayt linki saqlandi."
         );
+
+        setTimeout(() => {
+            sendAdminPanel(chatId);
+        }, 300);
+
+        return;
     }
 
     // ======================================
@@ -708,23 +810,47 @@ https://t.me/kanal`
 
         delete adminState[userId];
 
-        return bot.sendMessage(
+        bot.sendMessage(
             chatId,
-            "✅ Aloqa linki saqlandi.",
-            adminPanel()
+            "✅ Aloqa linki saqlandi."
         );
+
+        setTimeout(() => {
+            sendAdminPanel(chatId);
+        }, 300);
+
+        return;
     }
+
 });
 
 // ==========================================
-// XATOLIK
+// XATOLIKLAR
 // ==========================================
 
 bot.on("polling_error", (error) => {
 
     console.log(
-        "❌ Telegram xatosi:",
+        "❌ POLLING XATOSI:",
         error.message
+    );
+
+});
+
+process.on("uncaughtException", (error) => {
+
+    console.log(
+        "❌ UNCaught Exception:",
+        error.message
+    );
+
+});
+
+process.on("unhandledRejection", (error) => {
+
+    console.log(
+        "❌ Unhandled Rejection:",
+        error
     );
 
 });
