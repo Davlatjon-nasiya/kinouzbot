@@ -3,7 +3,7 @@ const https = require("https");
 const fs = require("fs");
 
 const TOKEN = process.env.BOT_TOKEN;
-const ADMIN_ID = 858239817;
+const ADMIN_ID = 8582398177;
 const PORT = process.env.PORT || 10000;
 
 const PUBLIC_URL =
