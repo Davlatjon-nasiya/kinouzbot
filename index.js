@@ -26,10 +26,10 @@ console.log("🤖 BOT KODI YUKLANDI");
 // ================================
 
 const LINKS = [
-    {
-        name: "📢 Telegram — Mandarin Tech",
-        link: "https://t.me/mandarintech"
-    },
+  {
+    name: "📢 Qosimjon Maslahat",
+    link: "https://t.me/qosimjon_maslahat"
+},
     {
         name: "📸 Instagram — Yakhubov AI",
         link: "https://www.instagram.com/yakhubov_ai"
