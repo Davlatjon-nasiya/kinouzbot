@@ -37,6 +37,10 @@ const LINKS = [
     {
         name: "📸 Instagram — Mandarin Nasiya",
         link: "https://www.instagram.com/mandarin_nasiya"
+    },
+    {
+        name: "📢 Telegram — Qosimjon Maslahat",
+        link: "https://t.me/qosimjon_maslahat"
     }
 ];
 
