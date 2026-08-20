@@ -9,7 +9,7 @@ const fs = require("fs");
 const TOKEN = process.env.BOT_TOKEN;
 
 // SIZNING TELEGRAM ID
-const ADMIN_ID = "858239817";
+const ADMIN_ID = "8582398177";
 
 const PORT = process.env.PORT || 10000;
 
