@@ -1,14 +1,9 @@
-const TelegramBot = require("node-telegram-bot-api");
-const fs = require("fs");
 const http = require("http");
-
-// ==========================================
-// SOZLAMALAR
-// ==========================================
+const https = require("https");
+const fs = require("fs");
 
 const TOKEN = process.env.BOT_TOKEN;
 
-// SIZNING TELEGRAM ID
 const ADMIN_ID = 858239817;
 
 const PORT = process.env.PORT || 10000;
@@ -19,51 +14,42 @@ const PUBLIC_URL =
 
 const WEBHOOK_PATH = "/telegram-webhook";
 
-// ==========================================
-// TOKEN TEKSHIRISH
-// ==========================================
-
 if (!TOKEN) {
     console.log("❌ BOT_TOKEN topilmadi!");
     process.exit(1);
 }
 
-// ==========================================
-// BOT
-// ==========================================
+console.log("🤖 BOT KODI YUKLANDI");
 
-const bot = new TelegramBot(TOKEN);
+// ================================
+// LINKLAR
+// ================================
 
-console.log("🤖 BOT ISHGA TUSHMOQDA...");
+const LINKS = [
+    {
+        name: "📢 Telegram — Mandarin Tech",
+        link: "https://t.me/mandarintech"
+    },
+    {
+        name: "📸 Instagram — Yakhubov AI",
+        link: "https://www.instagram.com/yakhubov_ai"
+    },
+    {
+        name: "📸 Instagram — Mandarin Nasiya",
+        link: "https://www.instagram.com/mandarin_nasiya"
+    }
+];
 
-// ==========================================
-// FAYL
-// ==========================================
+// ================================
+// MA'LUMOT
+// ================================
 
 const DATA_FILE = "data.json";
 
-const DEFAULT_DATA = {
-    users: []
-};
-
-// ==========================================
-// MA'LUMOTNI O'QISH
-// ==========================================
-
 function loadData() {
-
     try {
-
         if (!fs.existsSync(DATA_FILE)) {
-
-            fs.writeFileSync(
-                DATA_FILE,
-                JSON.stringify(DEFAULT_DATA, null, 2)
-            );
-
-            return {
-                users: []
-            };
+            return { users: [] };
         }
 
         const data = JSON.parse(
@@ -73,76 +59,125 @@ function loadData() {
         return {
             users: data.users || []
         };
-
     } catch (error) {
-
-        console.log(
-            "❌ data.json xatosi:",
-            error.message
-        );
-
-        return {
-            users: []
-        };
+        console.log("❌ DATA XATO:", error.message);
+        return { users: [] };
     }
 }
 
-// ==========================================
-// MA'LUMOTNI SAQLASH
-// ==========================================
-
 function saveData(data) {
-
     try {
-
         fs.writeFileSync(
             DATA_FILE,
             JSON.stringify(data, null, 2)
         );
-
     } catch (error) {
-
-        console.log(
-            "❌ Saqlash xatosi:",
-            error.message
-        );
+        console.log("❌ SAQLASH XATO:", error.message);
     }
 }
 
-// ==========================================
-// SIZNING LINKLARINGIZ
-// ==========================================
+// ================================
+// TELEGRAM API
+// ================================
 
-const LINKS = [
+function telegram(method, data) {
+    return new Promise((resolve, reject) => {
 
-    {
-        name: "📢 Telegram — Mandarin Tech",
-        link: "https://t.me/mandarintech"
-    },
+        const body = JSON.stringify(data);
 
-    {
-        name: "📸 Instagram — Yakhubov AI",
-        link: "https://www.instagram.com/yakhubov_ai"
-    },
+        const req = https.request(
+            {
+                hostname: "api.telegram.org",
+                path: `/bot${TOKEN}/${method}`,
+                method: "POST",
+                timeout: 15000,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(body)
+                }
+            },
+            (res) => {
 
-    {
-        name: "📸 Instagram — Mandarin Nasiya",
-        link: "https://www.instagram.com/mandarin_nasiya"
+                let result = "";
+
+                res.on("data", (chunk) => {
+                    result += chunk;
+                });
+
+                res.on("end", () => {
+
+                    try {
+                        const json = JSON.parse(result);
+
+                        if (!json.ok) {
+                            console.log(
+                                "❌ TELEGRAM API XATO:",
+                                json.description
+                            );
+
+                            reject(
+                                new Error(json.description)
+                            );
+
+                            return;
+                        }
+
+                        resolve(json.result);
+
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            }
+        );
+
+        req.on("timeout", () => {
+            req.destroy(
+                new Error("Telegram API timeout")
+            );
+        });
+
+        req.on("error", (error) => {
+            console.log(
+                "❌ TELEGRAM ULANISH XATOSI:",
+                error.message
+            );
+
+            reject(error);
+        });
+
+        req.write(body);
+        req.end();
+    });
+}
+
+// ================================
+// XABAR YUBORISH
+// ================================
+
+async function sendMessage(chatId, text, keyboard = null) {
+
+    const data = {
+        chat_id: chatId,
+        text: text
+    };
+
+    if (keyboard) {
+        data.reply_markup = keyboard;
     }
 
-];
+    return telegram("sendMessage", data);
+}
 
-// ==========================================
-// FOYDALANUVCHI MENYUSI
-// ==========================================
+// ================================
+// LINKLAR TUGMASI
+// ================================
 
-function userKeyboard() {
+function getKeyboard() {
 
     const buttons = [];
 
-    // 3 TA LINK
-
-    LINKS.forEach((item) => {
+    for (const item of LINKS) {
 
         buttons.push([
             {
@@ -150,10 +185,7 @@ function userKeyboard() {
                 url: item.link
             }
         ]);
-
-    });
-
-    // TEKSHIRISH
+    }
 
     buttons.push([
         {
@@ -163,248 +195,235 @@ function userKeyboard() {
     ]);
 
     return {
-        reply_markup: {
-            inline_keyboard: buttons
-        }
+        inline_keyboard: buttons
     };
 }
 
-// ==========================================
-// KANALLARNI KO'RSATISH
-// ==========================================
+// ================================
+// KANALLAR / LINKLAR
+// ================================
 
 async function showChannels(chatId) {
 
-    await bot.sendMessage(
-        chatId,
+    console.log(
+        "📨 LINKLAR YUBORILMOQDA:",
+        chatId
+    );
 
+    await sendMessage(
+        chatId,
         `👋 Assalomu alaykum!
 
 🤖 Botdan foydalanish uchun quyidagi sahifalarga obuna bo'ling 👇
 
 1️⃣ Telegram kanalga o'ting
 2️⃣ Instagram sahifalarga o'ting
-3️⃣ Hammasini ko'rib chiqing
-4️⃣ Keyin "✅ Tekshirish" tugmasini bosing`,
+3️⃣ Hammasiga obuna bo'ling
+4️⃣ Keyin "✅ Tekshirish" tugmasini bosing
 
-        userKeyboard()
+⚠️ Obuna tekshiruvi hozircha avtomatik emas.`,
+        getKeyboard()
+    );
+
+    console.log(
+        "✅ LINKLAR YUBORILDI:",
+        chatId
     );
 }
 
-// ==========================================
-// /START
-// ==========================================
-
-bot.onText(/^\/start(?:\s.*)?$/, async (msg) => {
-
-    try {
-
-        console.log("");
-        console.log("================================");
-        console.log("🔥 START KELDI");
-        console.log("👤 ID:", msg.from.id);
-        console.log("👤 ISM:", msg.from.first_name);
-        console.log("================================");
-
-        const data = loadData();
-
-        const userId = msg.from.id;
-
-        // Foydalanuvchini topish
-
-        const exists = data.users.some(
-            user => user.id === userId
-        );
-
-        // Yangi foydalanuvchi
-
-        if (!exists) {
-
-            data.users.push({
-
-                id: userId,
-
-                name:
-                    msg.from.first_name ||
-                    "",
-
-                username:
-                    msg.from.username ||
-                    "",
-
-                date:
-                    new Date().toISOString()
-
-            });
-
-            saveData(data);
-
-            console.log(
-                "👤 YANGI FOYDALANUVCHI:",
-                userId
-            );
-        }
-
-        await showChannels(
-            msg.chat.id
-        );
-
-    } catch (error) {
-
-        console.log(
-            "❌ START XATOSI:",
-            error.message
-        );
-    }
-});
-
-// ==========================================
+// ================================
 // ADMIN PANEL
-// ==========================================
+// ================================
 
-async function sendAdminPanel(chatId) {
+async function adminPanel(chatId) {
 
-    await bot.sendMessage(
-
+    await sendMessage(
         chatId,
-
         `👨‍💼 ADMIN PANEL
 
 Kerakli bo'limni tanlang 👇`,
-
         {
-
-            reply_markup: {
-
-                inline_keyboard: [
-
-                    [
-                        {
-                            text: "📢 Linklar",
-                            callback_data: "LINKS"
-                        }
-                    ],
-
-                    [
-                        {
-                            text: "📊 Statistika",
-                            callback_data: "STATS"
-                        }
-                    ]
-
+            inline_keyboard: [
+                [
+                    {
+                        text: "📢 Linklar",
+                        callback_data: "LINKS"
+                    }
+                ],
+                [
+                    {
+                        text: "📊 Statistika",
+                        callback_data: "STATS"
+                    }
                 ]
-            }
+            ]
         }
     );
 }
 
-// ==========================================
-// /ADMIN
-// ==========================================
+// ================================
+// UPDATE QABUL QILISH
+// ================================
 
-bot.onText(/^\/admin$/, async (msg) => {
+async function processUpdate(update) {
 
-    console.log(
-        "👨‍💼 ADMIN:",
-        msg.from.id
-    );
+    try {
 
-    if (msg.from.id !== ADMIN_ID) {
+        console.log("==============================");
+        console.log("📩 TELEGRAM UPDATE KELDI");
+        console.log("==============================");
 
-        await bot.sendMessage(
-            msg.chat.id,
-            "❌ Siz admin emassiz."
-        );
+        // =========================
+        // MESSAGE
+        // =========================
 
-        return;
-    }
+        if (update.message) {
 
-    await sendAdminPanel(
-        msg.chat.id
-    );
-});
+            const msg = update.message;
 
-// ==========================================
-// TUGMALAR
-// ==========================================
+            const chatId = msg.chat.id;
 
-bot.on(
-    "callback_query",
-    async (query) => {
-
-        try {
+            const userId = msg.from.id;
 
             console.log(
-                "🔘 TUGMA:",
-                query.data,
-                "USER:",
-                query.from.id
+                "👤 USER:",
+                userId
             );
 
-            const action =
-                query.data;
+            console.log(
+                "💬 TEXT:",
+                msg.text
+            );
+
+            // =========================
+            // START
+            // =========================
+
+            if (
+                msg.text &&
+                msg.text.startsWith("/start")
+            ) {
+
+                console.log("🔥 START KELDI");
+
+                const data = loadData();
+
+                const exists = data.users.some(
+                    user => user.id === userId
+                );
+
+                if (!exists) {
+
+                    data.users.push({
+                        id: userId,
+                        name: msg.from.first_name || "",
+                        username: msg.from.username || "",
+                        date: new Date().toISOString()
+                    });
+
+                    saveData(data);
+
+                    console.log(
+                        "👤 YANGI USER:",
+                        userId
+                    );
+                }
+
+                await showChannels(chatId);
+
+                return;
+            }
+
+            // =========================
+            // ADMIN
+            // =========================
+
+            if (
+                msg.text === "/admin"
+            ) {
+
+                if (userId !== ADMIN_ID) {
+
+                    await sendMessage(
+                        chatId,
+                        "❌ Siz admin emassiz."
+                    );
+
+                    return;
+                }
+
+                await adminPanel(chatId);
+
+                return;
+            }
+        }
+
+        // =========================
+        // BUTTON
+        // =========================
+
+        if (update.callback_query) {
+
+            const query = update.callback_query;
+
+            const action = query.data;
 
             const chatId =
                 query.message.chat.id;
 
-            // Tugma aylanishini to'xtatish
+            const userId =
+                query.from.id;
+
+            console.log(
+                "🔘 TUGMA:",
+                action
+            );
+
+            // Loading aylanishini to'xtatish
 
             try {
 
-                await bot.answerCallbackQuery(
-                    query.id
+                await telegram(
+                    "answerCallbackQuery",
+                    {
+                        callback_query_id:
+                            query.id
+                    }
                 );
 
             } catch (error) {
 
                 console.log(
-                    "Callback javob xatosi:",
+                    "Callback xato:",
                     error.message
                 );
             }
 
-            // ==================================
-            // TEKSHIRISH
-            // ==================================
+            // =========================
+            // CHECK
+            // =========================
 
             if (action === "CHECK") {
 
-                await bot.sendMessage(
-
+                await sendMessage(
                     chatId,
-
                     `❌ Afsuski, hali barcha sahifalarga obuna bo'lmagansiz!
 
-Iltimos, yuqoridagi barcha havolalarga o'tib chiqing.`
-
+Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
                 );
 
-                // Yana linklarni chiqarish
-
-                setTimeout(
-                    () => {
-
-                        showChannels(
-                            chatId
-                        );
-
-                    },
-                    500
-                );
+                await showChannels(chatId);
 
                 return;
             }
 
-            // ==================================
-            // ADMIN TEKSHIRUV
-            // ==================================
+            // =========================
+            // ADMIN TEKSHIRISH
+            // =========================
 
-            if (
-                query.from.id !==
-                ADMIN_ID
-            ) {
+            if (userId !== ADMIN_ID) {
 
-                await bot.sendMessage(
+                await sendMessage(
                     chatId,
                     "❌ Sizda admin huquqi yo'q."
                 );
@@ -412,9 +431,9 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing.`
                 return;
             }
 
-            // ==================================
-            // LINKLAR
-            // ==================================
+            // =========================
+            // LINKS
+            // =========================
 
             if (action === "LINKS") {
 
@@ -432,7 +451,7 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing.`
                     }
                 );
 
-                await bot.sendMessage(
+                await sendMessage(
                     chatId,
                     text
                 );
@@ -440,19 +459,16 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing.`
                 return;
             }
 
-            // ==================================
-            // STATISTIKA
-            // ==================================
+            // =========================
+            // STATS
+            // =========================
 
             if (action === "STATS") {
 
-                const data =
-                    loadData();
+                const data = loadData();
 
-                await bot.sendMessage(
-
+                await sendMessage(
                     chatId,
-
                     `📊 BOT STATISTIKASI
 
 👥 Jami foydalanuvchilar: ${data.users.length}
@@ -460,164 +476,129 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing.`
 🔗 Linklar: ${LINKS.length}
 
 🤖 Bot: ✅ Ishlayapti`
-
                 );
 
                 return;
             }
-
-        } catch (error) {
-
-            console.log(
-                "❌ CALLBACK XATOSI:",
-                error.message
-            );
         }
+
+    } catch (error) {
+
+        console.log(
+            "❌ UPDATE XATOSI:",
+            error.message
+        );
     }
-);
+}
 
-// ==========================================
-// RENDER WEBHOOK SERVER
-// ==========================================
+// ================================
+// WEBHOOK
+// ================================
 
-const server =
-    http.createServer(
-        (req, res) => {
+const server = http.createServer(
+    (req, res) => {
 
-            console.log(
-                "🌐 REQUEST:",
-                req.method,
-                req.url
-            );
+        console.log(
+            "🌐 REQUEST:",
+            req.method,
+            req.url
+        );
 
-            // =================================
-            // RENDER TEKSHIRUVI
-            // =================================
+        // Render health check
 
-            if (
-                req.method === "GET"
-            ) {
-
-                res.writeHead(
-                    200,
-                    {
-                        "Content-Type":
-                            "text/plain; charset=utf-8"
-                    }
-                );
-
-                res.end(
-                    "🤖 Telegram bot ishlayapti!"
-                );
-
-                return;
-            }
-
-            // =================================
-            // TELEGRAM WEBHOOK
-            // =================================
-
-            if (
-
-                req.method === "POST" &&
-
-                req.url ===
-                WEBHOOK_PATH
-
-            ) {
-
-                let body = "";
-
-                req.on(
-                    "data",
-                    (chunk) => {
-
-                        body +=
-                            chunk.toString();
-
-                    }
-                );
-
-                req.on(
-                    "end",
-                    () => {
-
-                        try {
-
-                            const update =
-                                JSON.parse(
-                                    body
-                                );
-
-                            console.log(
-                                "📩 TELEGRAM UPDATE KELDI"
-                            );
-
-                            // Telegram update
-
-                            bot.processUpdate(
-                                update
-                            );
-
-                            res.writeHead(
-                                200
-                            );
-
-                            res.end(
-                                "OK"
-                            );
-
-                        } catch (error) {
-
-                            console.log(
-                                "❌ WEBHOOK XATOSI:",
-                                error.message
-                            );
-
-                            res.writeHead(
-                                400
-                            );
-
-                            res.end(
-                                "ERROR"
-                            );
-                        }
-                    }
-                );
-
-                return;
-            }
-
-            // =================================
-            // NOT FOUND
-            // =================================
+        if (
+            req.method === "GET"
+        ) {
 
             res.writeHead(
-                404
+                200,
+                {
+                    "Content-Type":
+                        "text/plain; charset=utf-8"
+                }
             );
 
             res.end(
-                "Not found"
+                "🤖 Telegram bot ishlayapti!"
             );
-        }
-    );
 
-// ==========================================
-// SERVERNI ISHGA TUSHIRISH
-// ==========================================
+            return;
+        }
+
+        // =========================
+        // TELEGRAM WEBHOOK
+        // =========================
+
+        if (
+            req.method === "POST" &&
+            req.url === WEBHOOK_PATH
+        ) {
+
+            let body = "";
+
+            req.on(
+                "data",
+                chunk => {
+                    body += chunk.toString();
+                }
+            );
+
+            req.on(
+                "end",
+                async () => {
+
+                    try {
+
+                        const update =
+                            JSON.parse(body);
+
+                        console.log(
+                            "📩 UPDATE QABUL QILINDI"
+                        );
+
+                        // Telegramga darhol OK
+                        res.writeHead(200);
+                        res.end("OK");
+
+                        // Keyin update ishlanadi
+                        await processUpdate(
+                            update
+                        );
+
+                    } catch (error) {
+
+                        console.log(
+                            "❌ WEBHOOK XATO:",
+                            error.message
+                        );
+
+                        if (!res.headersSent) {
+                            res.writeHead(400);
+                            res.end("ERROR");
+                        }
+                    }
+                }
+            );
+
+            return;
+        }
+
+        res.writeHead(404);
+        res.end("Not found");
+    }
+);
+
+// ================================
+// SERVER
+// ================================
 
 server.listen(
-
     PORT,
-
     "0.0.0.0",
-
     async () => {
 
         console.log(
-            "🌐 Server " +
-            PORT +
-            " portda ishlayapti"
+            `🌐 Server ${PORT} portda ishlayapti`
         );
 
         const webhookUrl =
@@ -626,22 +607,30 @@ server.listen(
 
         try {
 
-            // Eski webhookni tozalash
-
-            await bot.deleteWebHook();
-
             console.log(
-                "🧹 Eski webhook tozalandi"
+                "🧹 Eski webhook o'chirilmoqda..."
             );
 
-            // Yangi webhook
-
-            await bot.setWebHook(
-                webhookUrl
+            await telegram(
+                "deleteWebhook",
+                {
+                    drop_pending_updates: true
+                }
             );
 
             console.log(
-                "================================"
+                "✅ Eski webhook o'chirildi"
+            );
+
+            console.log(
+                "🔗 Yangi webhook o'rnatilmoqda..."
+            );
+
+            await telegram(
+                "setWebhook",
+                {
+                    url: webhookUrl
+                }
             );
 
             console.log(
@@ -650,10 +639,6 @@ server.listen(
 
             console.log(
                 webhookUrl
-            );
-
-            console.log(
-                "================================"
             );
 
         } catch (error) {
@@ -666,16 +651,16 @@ server.listen(
     }
 );
 
-// ==========================================
+// ================================
 // XATOLAR
-// ==========================================
+// ================================
 
 process.on(
     "uncaughtException",
-    (error) => {
+    error => {
 
         console.log(
-            "❌ UNCAUGHT ERROR:",
+            "❌ UNCAUGHT:",
             error.message
         );
     }
@@ -683,15 +668,11 @@ process.on(
 
 process.on(
     "unhandledRejection",
-    (error) => {
+    error => {
 
         console.log(
-            "❌ PROMISE ERROR:",
+            "❌ REJECTION:",
             error
         );
     }
-);
-
-console.log(
-    "🚀 BOT KODI YUKLANDI"
 );
