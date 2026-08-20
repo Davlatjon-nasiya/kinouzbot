@@ -501,22 +501,33 @@ async function processUpdate(update) {
                     ADMIN_ID
                 );
 
-                if (
-                    !isAdmin(userId)
-                ) {
+                if (String(userId).trim() !== "8582398177") {
 
-                    console.log(
-                        "❌ ADMIN EMAS"
-                    );
+    console.log(
+        "❌ ADMIN EMAS"
+    );
 
-                    await sendMessage(
-                        chatId,
-                        "❌ Siz admin emassiz."
-                    );
+    console.log(
+        "USER ID:",
+        String(userId).trim()
+    );
 
-                    return;
-                }
+    console.log(
+        "KERAKLI ADMIN ID:",
+        "8582398177"
+    );
 
+    await sendMessage(
+        chatId,
+        "❌ Siz admin emassiz."
+    );
+
+    return;
+}
+
+console.log(
+    "✅ ADMIN TASDIQLANDI"
+);
                 console.log(
                     "✅ ADMIN TASDIQLANDI"
                 );
