@@ -57,11 +57,14 @@ const DEFAULT_LINKS = [
 function loadData() {
     try {
         if (!fs.existsSync(DATA_FILE)) {
-            return {
+            const data = {
                 users: [],
                 links: DEFAULT_LINKS,
                 totalStarts: 0
             };
+
+            saveData(data);
+            return data;
         }
 
         const data = JSON.parse(
@@ -83,6 +86,7 @@ function loadData() {
         };
 
     } catch (error) {
+
         console.log(
             "❌ DATA XATOSI:",
             error.message
@@ -98,6 +102,7 @@ function loadData() {
 
 function saveData(data) {
     try {
+
         fs.writeFileSync(
             DATA_FILE,
             JSON.stringify(
@@ -106,7 +111,9 @@ function saveData(data) {
                 2
             )
         );
+
     } catch (error) {
+
         console.log(
             "❌ SAQLASH XATOSI:",
             error.message
@@ -119,10 +126,7 @@ function saveData(data) {
 // ========================================
 
 function isAdmin(userId) {
-    return (
-        String(userId).trim() ===
-        ADMIN_ID
-    );
+    return String(userId).trim() === ADMIN_ID;
 }
 
 // ========================================
@@ -130,6 +134,7 @@ function isAdmin(userId) {
 // ========================================
 
 function telegram(method, data) {
+
     return new Promise((resolve, reject) => {
 
         const body = JSON.stringify(data);
@@ -161,8 +166,7 @@ function telegram(method, data) {
                 res.on(
                     "data",
                     chunk => {
-                        result +=
-                            chunk.toString();
+                        result += chunk.toString();
                     }
                 );
 
@@ -173,17 +177,17 @@ function telegram(method, data) {
                         try {
 
                             const json =
-                                JSON.parse(
-                                    result
-                                );
+                                JSON.parse(result);
 
                             if (!json.ok) {
+
                                 reject(
                                     new Error(
                                         json.description ||
                                         "Telegram API xatosi"
                                     )
                                 );
+
                                 return;
                             }
 
@@ -203,6 +207,7 @@ function telegram(method, data) {
         req.on(
             "timeout",
             () => {
+
                 req.destroy(
                     new Error(
                         "Telegram API timeout"
@@ -230,7 +235,7 @@ function telegram(method, data) {
 }
 
 // ========================================
-// XABAR
+// XABAR YUBORISH
 // ========================================
 
 async function sendMessage(
@@ -238,6 +243,7 @@ async function sendMessage(
     text,
     keyboard = null
 ) {
+
     const data = {
         chat_id: chatId,
         text: text
@@ -321,7 +327,7 @@ async function showChannels(chatId) {
     await sendMessage(
         chatId,
 
-`👋 Assalomu alaykum!
+        `👋 Assalomu alaykum!
 
 🤖 Botdan foydalanish uchun quyidagi sahifalarga obuna bo'ling 👇
 
@@ -345,7 +351,7 @@ async function adminPanel(chatId) {
     await sendMessage(
         chatId,
 
-`👨‍💼 ADMIN PANEL
+        `👨‍💼 ADMIN PANEL
 
 Kerakli bo'limni tanlang 👇`,
 
@@ -420,7 +426,17 @@ async function showAdminLinks(chatId) {
 
     await sendMessage(
         chatId,
-        text
+        text,
+        {
+            inline_keyboard: [
+                [
+                    {
+                        text: "🔙 Admin panel",
+                        callback_data: "ADMIN_PANEL"
+                    }
+                ]
+            ]
+        }
     );
 }
 
@@ -469,15 +485,13 @@ async function processUpdate(update) {
             );
 
             // ==================================
-            // ADMIN
+            // ADMIN /admin
             // ==================================
 
-            if (
-                text === "/admin"
-            ) {
+            if (text === "/admin") {
 
                 console.log(
-                    "👨‍💼 ADMIN BUYRUG'I KELDI"
+                    "👨‍💼 ADMIN BUYRUG'I"
                 );
 
                 console.log(
@@ -507,6 +521,9 @@ async function processUpdate(update) {
                 console.log(
                     "✅ ADMIN TASDIQLANDI"
                 );
+
+                // Eski state bo'lsa tozalaymiz
+                adminStates.delete(userId);
 
                 await adminPanel(
                     chatId
@@ -552,13 +569,15 @@ async function processUpdate(update) {
                                 );
 
                         if (
-                            parts.length < 2
+                            parts.length < 2 ||
+                            !parts[0] ||
+                            !parts[1]
                         ) {
 
                             await sendMessage(
                                 chatId,
 
-`❌ Format xato.
+                                `❌ Format xato.
 
 Shunday yozing:
 
@@ -608,17 +627,14 @@ Masalan:
                             Number(text) - 1;
 
                         if (
-                            !Number.isInteger(
-                                index
-                            ) ||
+                            !Number.isInteger(index) ||
                             index < 0 ||
-                            index >=
-                                data.links.length
+                            index >= data.links.length
                         ) {
 
                             await sendMessage(
                                 chatId,
-                                "❌ Raqam noto'g'ri."
+                                "❌ Raqam noto'g'ri. Masalan: 1"
                             );
 
                             return;
@@ -639,7 +655,7 @@ Masalan:
                         await sendMessage(
                             chatId,
 
-`🗑 O'chirildi:
+                            `🗑 O'chirildi:
 
 ${deleted.name}`
                         );
@@ -675,7 +691,7 @@ ${deleted.name}`
                             await sendMessage(
                                 chatId,
 
-`❌ Format xato.
+                                `❌ Format xato.
 
 Shunday yozing:
 
@@ -695,12 +711,9 @@ Masalan:
                             ) - 1;
 
                         if (
-                            !Number.isInteger(
-                                index
-                            ) ||
+                            !Number.isInteger(index) ||
                             index < 0 ||
-                            index >=
-                                data.links.length
+                            index >= data.links.length
                         ) {
 
                             await sendMessage(
@@ -830,9 +843,7 @@ Masalan:
             );
 
             // ==================================
-            // ENG MUHIM QISM
-            // CALLBACK XATO BO'LSA HAM
-            // BOT TO'XTAMAYDI
+            // CALLBACKNI YOPISH
             // ==================================
 
             try {
@@ -864,7 +875,7 @@ Masalan:
                 await sendMessage(
                     chatId,
 
-`❌ Afsuski, hali barcha sahifalarga obuna bo'lmagansiz!
+                    `❌ Afsuski, hali barcha sahifalarga obuna bo'lmagansiz!
 
 Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
                 );
@@ -877,17 +888,42 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
             }
 
             // ==================================
-            // ADMIN TEKSHIRISH
+            // ADMIN PANELGA QAYTISH
             // ==================================
 
             if (
-                String(userId).trim() !==
-                ADMIN_ID
+                action === "ADMIN_PANEL"
             ) {
 
-                console.log(
-                    "❌ TUGMA BOSGAN USER ADMIN EMAS:",
+                if (!isAdmin(userId)) {
+
+                    await sendMessage(
+                        chatId,
+                        "❌ Siz admin emassiz."
+                    );
+
+                    return;
+                }
+
+                adminStates.delete(
                     userId
+                );
+
+                await adminPanel(
+                    chatId
+                );
+
+                return;
+            }
+
+            // ==================================
+            // ADMIN TEKSHIRISH
+            // ==================================
+
+            if (!isAdmin(userId)) {
+
+                console.log(
+                    "❌ ADMIN EMAS"
                 );
 
                 await sendMessage(
@@ -910,6 +946,10 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
                 action === "LINKS"
             ) {
 
+                adminStates.delete(
+                    userId
+                );
+
                 await showAdminLinks(
                     chatId
                 );
@@ -925,13 +965,17 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
                 action === "STATS"
             ) {
 
+                adminStates.delete(
+                    userId
+                );
+
                 const data =
                     loadData();
 
                 await sendMessage(
                     chatId,
 
-`📊 BOT STATISTIKASI
+                    `📊 BOT STATISTIKASI
 
 👥 Jami foydalanuvchilar:
 ${data.users.length}
@@ -946,7 +990,18 @@ ${data.totalStarts}
 ${data.links.length}
 
 🤖 Bot:
-✅ Ishlayapti`
+✅ Ishlayapti`,
+
+                    {
+                        inline_keyboard: [
+                            [
+                                {
+                                    text: "🔙 Admin panel",
+                                    callback_data: "ADMIN_PANEL"
+                                }
+                            ]
+                        ]
+                    }
                 );
 
                 return;
@@ -971,7 +1026,7 @@ ${data.links.length}
                 await sendMessage(
                     chatId,
 
-`➕ LINK QO'SHISH
+                    `➕ LINK QO'SHISH
 
 Shunday yozing:
 
@@ -979,7 +1034,9 @@ Nomi | Link
 
 Masalan:
 
-📢 Yangi kanal | https://t.me/yangi_kanal`
+📢 Yangi kanal | https://t.me/yangi_kanal
+
+❗ Bekor qilish uchun /admin yozing.`
                 );
 
                 return;
@@ -996,6 +1053,28 @@ Masalan:
                 const data =
                     loadData();
 
+                if (
+                    data.links.length === 0
+                ) {
+
+                    await sendMessage(
+                        chatId,
+                        "❌ O'chirish uchun link yo'q.",
+                        {
+                            inline_keyboard: [
+                                [
+                                    {
+                                        text: "🔙 Admin panel",
+                                        callback_data: "ADMIN_PANEL"
+                                    }
+                                ]
+                            ]
+                        }
+                    );
+
+                    return;
+                }
+
                 let text =
                     "🗑 LINK O'CHIRISH\n\n";
 
@@ -1008,7 +1087,7 @@ Masalan:
                 );
 
                 text +=
-                    "\nRaqamini yuboring.";
+                    "\nRaqamini yuboring.\n\nMasalan: 2";
 
                 adminStates.set(
                     userId,
@@ -1037,6 +1116,28 @@ Masalan:
                 const data =
                     loadData();
 
+                if (
+                    data.links.length === 0
+                ) {
+
+                    await sendMessage(
+                        chatId,
+                        "❌ O'zgartirish uchun link yo'q.",
+                        {
+                            inline_keyboard: [
+                                [
+                                    {
+                                        text: "🔙 Admin panel",
+                                        callback_data: "ADMIN_PANEL"
+                                    }
+                                ]
+                            ]
+                        }
+                    );
+
+                    return;
+                }
+
                 let text =
                     "✏️ LINK O'ZGARTIRISH\n\n";
 
@@ -1048,8 +1149,8 @@ Masalan:
                     }
                 );
 
-                text +=
-`
+                text += `
+
 Shunday yozing:
 
 Raqam | Yangi nom | Yangi link
@@ -1168,7 +1269,7 @@ const server =
 
                             res.end("OK");
 
-                            // Keyin update ishlanadi
+                            // Update ishlanadi
                             await processUpdate(
                                 update
                             );
