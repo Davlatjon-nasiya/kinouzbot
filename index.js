@@ -2,12 +2,11 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 
-// ========================================
+// ===============================
 // SOZLAMALAR
-// ========================================
+// ===============================
 
 const TOKEN = process.env.BOT_TOKEN;
-
 const ADMIN_ID = "8582398177";
 
 const PORT = process.env.PORT || 10000;
@@ -17,7 +16,6 @@ const PUBLIC_URL =
     "https://kinouzbot-a04h.onrender.com";
 
 const WEBHOOK_PATH = "/telegram-webhook";
-
 const DATA_FILE = "data.json";
 
 if (!TOKEN) {
@@ -27,105 +25,51 @@ if (!TOKEN) {
 
 console.log("🤖 BOT ISHGA TUSHMOQDA...");
 
-// ========================================
-// DEFAULT DATA
-// ========================================
+// ===============================
+// DATA
+// ===============================
 
 const DEFAULT_DATA = {
-    version: 2,
-
+    version: 5,
     users: [],
-
-    links: [],
-
     totalStarts: 0,
 
     card: "",
 
     vipName: "👑 VIP KANAL",
-
     vipLink: ""
 };
 
-// ========================================
-// DATA YUKLASH
-// ========================================
-
 function loadData() {
     try {
-
         if (!fs.existsSync(DATA_FILE)) {
-
             saveData(DEFAULT_DATA);
-
-            return {
-                ...DEFAULT_DATA
-            };
+            return { ...DEFAULT_DATA };
         }
 
-        const oldData = JSON.parse(
-            fs.readFileSync(
-                DATA_FILE,
-                "utf8"
-            )
+        const old = JSON.parse(
+            fs.readFileSync(DATA_FILE, "utf8")
         );
 
-        // Eski versiya bo'lsa,
-        // eski linklarni bir marta tozalaymiz
-        if (
-            Number(oldData.version || 0) < 2
-        ) {
-
-            const newData = {
-                ...DEFAULT_DATA,
-
-                users:
-                    Array.isArray(oldData.users)
-                        ? oldData.users
-                        : [],
-
-                totalStarts:
-                    Number(
-                        oldData.totalStarts || 0
-                    )
-            };
-
-            saveData(newData);
-
-            console.log(
-                "🧹 Eski linklar tozalandi!"
-            );
-
-            return newData;
-        }
-
         return {
-            version: 2,
+            version: 5,
 
-            users:
-                Array.isArray(oldData.users)
-                    ? oldData.users
-                    : [],
+            users: Array.isArray(old.users)
+                ? old.users
+                : [],
 
-            links:
-                Array.isArray(oldData.links)
-                    ? oldData.links
-                    : [],
+            totalStarts: Number(
+                old.totalStarts || 0
+            ),
 
-            totalStarts:
-                Number(
-                    oldData.totalStarts || 0
-                ),
-
-            card:
-                oldData.card || "",
+            card: old.card || "",
 
             vipName:
-                oldData.vipName ||
+                old.vipName ||
                 "👑 VIP KANAL",
 
             vipLink:
-                oldData.vipLink || ""
+                old.vipLink || ""
         };
 
     } catch (error) {
@@ -141,14 +85,8 @@ function loadData() {
     }
 }
 
-// ========================================
-// DATA SAQLASH
-// ========================================
-
 function saveData(data) {
-
     try {
-
         fs.writeFileSync(
             DATA_FILE,
             JSON.stringify(
@@ -157,7 +95,6 @@ function saveData(data) {
                 2
             )
         );
-
     } catch (error) {
 
         console.log(
@@ -167,26 +104,19 @@ function saveData(data) {
     }
 }
 
-// ========================================
-// ADMIN TEKSHIRISH
-// ========================================
+// ===============================
+// ADMIN
+// ===============================
 
 function isAdmin(userId) {
-
-    return (
-        String(userId).trim() ===
-        String(ADMIN_ID).trim()
-    );
+    return String(userId) === String(ADMIN_ID);
 }
 
-// ========================================
+// ===============================
 // TELEGRAM API
-// ========================================
+// ===============================
 
-function telegram(
-    method,
-    data
-) {
+function telegram(method, data) {
 
     return new Promise(
         (resolve, reject) => {
@@ -203,24 +133,20 @@ function telegram(
                         path:
                             `/bot${TOKEN}/${method}`,
 
-                        method:
-                            "POST",
-
-                        timeout:
-                            30000,
+                        method: "POST",
 
                         headers: {
                             "Content-Type":
                                 "application/json",
 
                             "Content-Length":
-                                Buffer.byteLength(
-                                    body
-                                )
-                        }
+                                Buffer.byteLength(body)
+                        },
+
+                        timeout: 30000
                     },
 
-                    (res) => {
+                    res => {
 
                         let result = "";
 
@@ -239,13 +165,9 @@ function telegram(
                                 try {
 
                                     const json =
-                                        JSON.parse(
-                                            result
-                                        );
+                                        JSON.parse(result);
 
-                                    if (
-                                        !json.ok
-                                    ) {
+                                    if (!json.ok) {
 
                                         reject(
                                             new Error(
@@ -261,13 +183,9 @@ function telegram(
                                         json.result
                                     );
 
-                                } catch (
-                                    error
-                                ) {
+                                } catch (error) {
 
-                                    reject(
-                                        error
-                                    );
+                                    reject(error);
                                 }
                             }
                         );
@@ -275,40 +193,30 @@ function telegram(
                 );
 
             req.on(
+                "error",
+                reject
+            );
+
+            req.on(
                 "timeout",
                 () => {
-
                     req.destroy(
                         new Error(
-                            "Telegram API timeout"
+                            "Telegram timeout"
                         )
                     );
                 }
             );
 
-            req.on(
-                "error",
-                error => {
-
-                    console.log(
-                        "❌ TELEGRAM XATO:",
-                        error.message
-                    );
-
-                    reject(error);
-                }
-            );
-
             req.write(body);
-
             req.end();
         }
     );
 }
 
-// ========================================
-// ODDIY XABAR
-// ========================================
+// ===============================
+// XABAR
+// ===============================
 
 async function sendMessage(
     chatId,
@@ -317,16 +225,12 @@ async function sendMessage(
 ) {
 
     const data = {
-        chat_id:
-            chatId,
-
-        text:
-            text
+        chat_id: chatId,
+        text: text
     };
 
     if (keyboard) {
-        data.reply_markup =
-            keyboard;
+        data.reply_markup = keyboard;
     }
 
     return telegram(
@@ -335,9 +239,9 @@ async function sendMessage(
     );
 }
 
-// ========================================
-// RASM YUBORISH
-// ========================================
+// ===============================
+// RASM
+// ===============================
 
 async function sendPhoto(
     chatId,
@@ -347,22 +251,16 @@ async function sendPhoto(
 ) {
 
     const data = {
-
-        chat_id:
-            chatId,
-
-        photo:
-            photo
+        chat_id: chatId,
+        photo: photo
     };
 
     if (caption) {
-        data.caption =
-            caption;
+        data.caption = caption;
     }
 
     if (keyboard) {
-        data.reply_markup =
-            keyboard;
+        data.reply_markup = keyboard;
     }
 
     return telegram(
@@ -371,24 +269,46 @@ async function sendPhoto(
     );
 }
 
-// ========================================
-// ADMIN HOLATLARI
-// ========================================
+// ===============================
+// HOLATLAR
+// ===============================
 
-const adminStates =
-    new Map();
+const adminStates = new Map();
+const userStates = new Map();
 
-const userStates =
-    new Map();
+// ===============================
+// USER MENYU
+// ===============================
 
-// ========================================
-// ADMIN KLAVIATURA
-// ========================================
+function userKeyboard() {
+
+    const data = loadData();
+
+    return {
+        inline_keyboard: [
+
+            [
+                {
+                    text:
+                        data.vipName ||
+                        "👑 VIP KANAL",
+
+                    callback_data:
+                        "VIP"
+                }
+            ]
+
+        ]
+    };
+}
+
+// ===============================
+// ADMIN MENYU
+// ===============================
 
 function adminKeyboard() {
 
     return {
-
         keyboard: [
 
             [
@@ -406,16 +326,9 @@ function adminKeyboard() {
             [
                 {
                     text:
-                        "🔗 Linklar"
+                        "📊 Statistika"
                 },
 
-                {
-                    text:
-                        "📊 Statistika"
-                }
-            ],
-
-            [
                 {
                     text:
                         "📨 Xabar yuborish"
@@ -424,67 +337,17 @@ function adminKeyboard() {
 
         ],
 
-        resize_keyboard:
-            true,
-
-        one_time_keyboard:
-            false
+        resize_keyboard: true
     };
 }
 
-// ========================================
-// USER MENYU
-// ========================================
-
-function userKeyboard() {
-
-    const data =
-        loadData();
-
-    const buttons = [];
-
-    // VIP kanal
-    buttons.push([
-        {
-            text:
-                data.vipName ||
-                "👑 VIP KANAL",
-
-            callback_data:
-                "VIP"
-        }
-    ]);
-
-    // Admin qo'shgan linklar
-    data.links.forEach(
-        item => {
-
-            buttons.push([
-                {
-                    text:
-                        item.name,
-
-                    url:
-                        item.link
-                }
-            ]);
-        }
-    );
-
-    return {
-        inline_keyboard:
-            buttons
-    };
-}
-
-// ========================================
-// VIP TARIFLAR
-// ========================================
+// ===============================
+// VIP MENYU
+// ===============================
 
 function vipKeyboard() {
 
     return {
-
         inline_keyboard: [
 
             [
@@ -531,14 +394,13 @@ function vipKeyboard() {
     };
 }
 
-// ========================================
-// TO'LOV KNOPKASI
-// ========================================
+// ===============================
+// TO'LOV MENYU
+// ===============================
 
 function paymentKeyboard() {
 
     return {
-
         inline_keyboard: [
 
             [
@@ -565,37 +427,91 @@ function paymentKeyboard() {
     };
 }
 
-// ========================================
-// ADMIN PANEL
-// ========================================
+// ===============================
+// ADMIN VIP MENYU
+// ===============================
 
-async function adminPanel(
-    chatId
-) {
+function vipAdminKeyboard() {
 
-    await sendMessage(
-        chatId,
+    return {
+        keyboard: [
 
-`👨‍💼 ADMIN PANEL
+            [
+                {
+                    text:
+                        "✏️ VIP nomi"
+                },
 
-Kerakli bo'limni tanlang 👇`,
+                {
+                    text:
+                        "🔗 VIP link"
+                }
+            ],
 
-        adminKeyboard()
-    );
+            [
+                {
+                    text:
+                        "🔙 Admin panel"
+                }
+            ]
+
+        ],
+
+        resize_keyboard: true
+    };
 }
 
-// ========================================
-// START MENU
-// ========================================
+// ===============================
+// KARTA MENYU
+// ===============================
 
-async function mainMenu(
-    chatId
-) {
+function cardKeyboard() {
+
+    return {
+        keyboard: [
+
+            [
+                {
+                    text:
+                        "➕ Karta qo'shish"
+                }
+            ],
+
+            [
+                {
+                    text:
+                        "✏️ Karta o'zgartirish"
+                },
+
+                {
+                    text:
+                        "🗑 Karta o'chirish"
+                }
+            ],
+
+            [
+                {
+                    text:
+                        "🔙 Admin panel"
+                }
+            ]
+
+        ],
+
+        resize_keyboard: true
+    };
+}
+
+// ===============================
+// START
+// ===============================
+
+async function mainMenu(chatId) {
 
     await sendMessage(
         chatId,
 
-`👋 Assalomu alaykum!
+        `👋 Assalomu alaykum!
 
 Kerakli bo'limni tanlang 👇`,
 
@@ -603,21 +519,18 @@ Kerakli bo'limni tanlang 👇`,
     );
 }
 
-// ========================================
-// VIP SAHIFA
-// ========================================
+// ===============================
+// VIP
+// ===============================
 
-async function showVip(
-    chatId
-) {
+async function showVip(chatId) {
 
-    const data =
-        loadData();
+    const data = loadData();
 
     await sendMessage(
         chatId,
 
-`👑 ${data.vipName}
+        `👑 ${data.vipName}
 
 VIP kanalga kirish uchun tariflardan birini tanlang:
 
@@ -631,62 +544,42 @@ VIP kanalga kirish uchun tariflardan birini tanlang:
     );
 }
 
-// ========================================
-// TARIF MA'LUMOTI
-// ========================================
+// ===============================
+// TARIF
+// ===============================
 
-function getTarif(
-    type
-) {
+function getTarif(type) {
 
-    if (
-        type ===
-        "TARIF_WEEK"
-    ) {
+    if (type === "TARIF_WEEK") {
 
         return {
-            name:
-                "1 haftalik",
-
-            price:
-                15000
+            name: "1 haftalik",
+            price: 15000
         };
     }
 
-    if (
-        type ===
-        "TARIF_MONTH"
-    ) {
+    if (type === "TARIF_MONTH") {
 
         return {
-            name:
-                "1 oylik",
-
-            price:
-                50000
+            name: "1 oylik",
+            price: 50000
         };
     }
 
-    if (
-        type ===
-        "TARIF_YEAR"
-    ) {
+    if (type === "TARIF_YEAR") {
 
         return {
-            name:
-                "1 yillik",
-
-            price:
-                180000
+            name: "1 yillik",
+            price: 180000
         };
     }
 
     return null;
 }
 
-// ========================================
+// ===============================
 // TO'LOV
-// ========================================
+// ===============================
 
 async function showPayment(
     chatId,
@@ -694,21 +587,16 @@ async function showPayment(
     tarif
 ) {
 
-    const data =
-        loadData();
+    const data = loadData();
 
-    if (
-        !data.card
-    ) {
+    if (!data.card) {
 
         await sendMessage(
             chatId,
 
-`❌ Hozircha karta raqami sozlanmagan.
+            `❌ Karta raqami hali sozlanmagan.
 
-Iltimos, admin bilan bog'laning.
-
-📩 @yakhubov_004`
+Admin karta raqamini qo'shishi kerak.`
         );
 
         return;
@@ -731,7 +619,7 @@ Iltimos, admin bilan bog'laning.
     await sendMessage(
         chatId,
 
-`💳 TO'LOV
+        `💳 TO'LOV
 
 📌 Tarif:
 ${tarif.name}
@@ -742,46 +630,41 @@ ${tarif.price.toLocaleString("uz-UZ")} so'm
 💳 Karta:
 ${data.card}
 
-⚠️ To'lovni amalga oshirgandan keyin:
+⚠️ Shu karta raqamiga to'lov qiling.
 
-👇 "💰 To'ladim" tugmasini bosing.`,
+To'lovdan keyin pastdagi
+"💰 To'ladim" tugmasini bosing.`,
 
         paymentKeyboard()
     );
 }
 
-// ========================================
-// CHEK KUTISH
-// ========================================
+// ===============================
+// CHEK
+// ===============================
 
-async function askReceipt(
-    chatId
-) {
+async function askReceipt(chatId) {
 
     await sendMessage(
         chatId,
 
-`📸 CHEKNI YUBORING
+        `📸 CHEKNI YUBORING
 
-To'lov qilganingizni tasdiqlash uchun chek rasmini shu yerga yuboring.
+To'lovni amalga oshirgandan keyin chekni shu yerga RASM qilib yuboring.
 
-⚠️ Chekni oddiy rasm ko'rinishida yuboring.
+⚠️ Faqat chek rasmini yuboring.
 
-Admin tekshiradi va VIP kanalga kirish ma'lumotini yuboradi.`
+Admin tekshiradi.`
     );
 }
 
-// ========================================
+// ===============================
 // PROFIL LINK
-// ========================================
+// ===============================
 
-function getProfileLink(
-    user
-) {
+function getProfileLink(user) {
 
-    if (
-        user.username
-    ) {
+    if (user.username) {
 
         return (
             "https://t.me/" +
@@ -795,9 +678,9 @@ function getProfileLink(
     );
 }
 
-// ========================================
+// ===============================
 // CHEKNI ADMINGA YUBORISH
-// ========================================
+// ===============================
 
 async function sendReceiptToAdmin(
     user,
@@ -807,27 +690,25 @@ async function sendReceiptToAdmin(
 ) {
 
     const profile =
-        getProfileLink(
-            user
-        );
+        getProfileLink(user);
 
     const caption =
 
-`💰 YANGI TO'LOV
+`💰 YANGI VIP TO'LOV
 
 👤 Ism:
-${user.first_name || ""}
-
-🔗 Profil:
-${profile}
-
-🆔 ID:
-${user.id}
+${user.first_name || "Noma'lum"}
 
 📱 Username:
 ${user.username
     ? "@" + user.username
     : "Username yo'q"}
+
+🆔 Telegram ID:
+${user.id}
+
+🔗 PROFIL:
+${profile}
 
 📌 Tarif:
 ${tarifName}
@@ -837,7 +718,7 @@ ${price.toLocaleString("uz-UZ")} so'm
 
 📸 Chek yuqorida.
 
-👇 Tekshirish kerak.`;
+👇 Tekshirish uchun tugmani bosing.`;
 
     await sendPhoto(
         ADMIN_ID,
@@ -872,89 +753,36 @@ ${price.toLocaleString("uz-UZ")} so'm
     );
 }
 
-// ========================================
-// BARCHAGA XABAR
-// ========================================
+// ===============================
+// ADMIN PANEL
+// ===============================
 
-async function broadcastMessage(
-    adminChatId,
-    messageText
-) {
-
-    const data =
-        loadData();
-
-    let sent = 0;
-    let failed = 0;
-
-    for (
-        const user of data.users
-    ) {
-
-        try {
-
-            await sendMessage(
-                user.id,
-                messageText
-            );
-
-            sent++;
-
-            await new Promise(
-                resolve =>
-                    setTimeout(
-                        resolve,
-                        50
-                    )
-            );
-
-        } catch (
-            error
-        ) {
-
-            failed++;
-
-            console.log(
-                `❌ ${user.id} ga yuborilmadi`
-            );
-        }
-    }
+async function adminPanel(chatId) {
 
     await sendMessage(
-        adminChatId,
+        chatId,
 
-`✅ XABAR YUBORILDI!
+        `👨‍💼 ADMIN PANEL
 
-👥 Jami:
-${data.users.length}
-
-✅ Yetib bordi:
-${sent}
-
-❌ Yetib bormadi:
-${failed}`,
+Kerakli bo'limni tanlang 👇`,
 
         adminKeyboard()
     );
 }
 
-// ========================================
+// ===============================
 // UPDATE
-// ========================================
+// ===============================
 
-async function processUpdate(
-    update
-) {
+async function processUpdate(update) {
 
     try {
 
-        // ==================================
+        // ===========================
         // MESSAGE
-        // ==================================
+        // ===========================
 
-        if (
-            update.message
-        ) {
+        if (update.message) {
 
             const msg =
                 update.message;
@@ -968,20 +796,60 @@ async function processUpdate(
             const text =
                 msg.text || "";
 
-            // ==================================
+            // =======================
+            // START
+            // =======================
+
+            if (text.startsWith("/start")) {
+
+                const data =
+                    loadData();
+
+                data.totalStarts =
+                    Number(
+                        data.totalStarts || 0
+                    ) + 1;
+
+                const exists =
+                    data.users.some(
+                        user =>
+                            String(user.id) ===
+                            String(userId)
+                    );
+
+                if (!exists) {
+
+                    data.users.push({
+
+                        id: userId,
+
+                        first_name:
+                            msg.from.first_name || "",
+
+                        username:
+                            msg.from.username || "",
+
+                        date:
+                            new Date().toISOString()
+                    });
+                }
+
+                saveData(data);
+
+                await mainMenu(chatId);
+
+                return;
+            }
+
+            // =======================
             // ADMIN
-            // ==================================
+            // =======================
 
             if (
-                text ===
-                "/admin"
+                text === "/admin"
             ) {
 
-                if (
-                    !isAdmin(
-                        userId
-                    )
-                ) {
+                if (!isAdmin(userId)) {
 
                     await sendMessage(
                         chatId,
@@ -991,98 +859,22 @@ async function processUpdate(
                     return;
                 }
 
-                adminStates.delete(
-                    userId
-                );
+                adminStates.delete(userId);
 
-                await adminPanel(
-                    chatId
-                );
+                await adminPanel(chatId);
 
                 return;
             }
 
-            // ==================================
-            // /START
-            // ==================================
+            // =======================
+            // ADMIN MENU
+            // =======================
 
-            if (
-                text.startsWith(
-                    "/start"
-                )
-            ) {
+            if (isAdmin(userId)) {
 
-                const data =
-                    loadData();
-
-                data.totalStarts =
-                    Number(
-                        data.totalStarts ||
-                        0
-                    ) + 1;
-
-                const exists =
-                    data.users.some(
-                        user =>
-                            String(
-                                user.id
-                            ) ===
-                            String(
-                                userId
-                            )
-                    );
-
+                // VIP
                 if (
-                    !exists
-                ) {
-
-                    data.users.push({
-
-                        id:
-                            userId,
-
-                        first_name:
-                            msg.from.first_name ||
-                            "",
-
-                        username:
-                            msg.from.username ||
-                            "",
-
-                        date:
-                            new Date()
-                                .toISOString()
-                    });
-                }
-
-                saveData(
-                    data
-                );
-
-                await mainMenu(
-                    chatId
-                );
-
-                return;
-            }
-
-            // ==================================
-            // ADMIN TEKSHIRISH
-            // ==================================
-
-            if (
-                isAdmin(
-                    userId
-                )
-            ) {
-
-                // ==================================
-                // VIP ADMIN
-                // ==================================
-
-                if (
-                    text ===
-                    "👑 VIP kanal"
+                    text === "👑 VIP kanal"
                 ) {
 
                     adminStates.delete(
@@ -1101,49 +893,19 @@ async function processUpdate(
 ${data.vipName}
 
 🔗 Hozirgi link:
-${data.vipLink || "Kiritilmagan"}
+${data.vipLink || "❌ Kiritilmagan"}
 
-Quyidagi bo'limlardan birini tanlang:`,
+Kerakli bo'limni tanlang:`,
 
-                        {
-                            keyboard: [
-
-                                [
-                                    {
-                                        text:
-                                            "✏️ VIP nomi"
-                                    },
-
-                                    {
-                                        text:
-                                            "🔗 VIP link"
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            "🔙 Admin panel"
-                                    }
-                                ]
-
-                            ],
-
-                            resize_keyboard:
-                                true
-                        }
+                        vipAdminKeyboard()
                     );
 
                     return;
                 }
 
-                // ==================================
                 // VIP NOMI
-                // ==================================
-
                 if (
-                    text ===
-                    "✏️ VIP nomi"
+                    text === "✏️ VIP nomi"
                 ) {
 
                     adminStates.set(
@@ -1159,23 +921,18 @@ Quyidagi bo'limlardan birini tanlang:`,
 
 `✏️ VIP KANAL NOMI
 
-Yangi nomni yozing.
+Yangi VIP kanal nomini yuboring.
 
 Masalan:
-
-👑 Mandarin VIP`
+👑 VIP KANAL`
                     );
 
                     return;
                 }
 
-                // ==================================
                 // VIP LINK
-                // ==================================
-
                 if (
-                    text ===
-                    "🔗 VIP link"
+                    text === "🔗 VIP link"
                 ) {
 
                     adminStates.set(
@@ -1191,23 +948,18 @@ Masalan:
 
 `🔗 VIP KANAL LINKI
 
-Yangi VIP kanal linkini yuboring.
+VIP kanalning taklif linkini yuboring.
 
 Masalan:
-
 https://t.me/+xxxxxxxx`
                     );
 
                     return;
                 }
 
-                // ==================================
                 // KARTA
-                // ==================================
-
                 if (
-                    text ===
-                    "💳 Karta"
+                    text === "💳 Karta"
                 ) {
 
                     adminStates.delete(
@@ -1224,56 +976,20 @@ https://t.me/+xxxxxxxx`
 
 Hozirgi karta:
 
-${data.card || "❌ Karta kiritilmagan"}`,
+${data.card || "❌ Karta kiritilmagan"}
 
-                        {
-                            keyboard: [
+Quyidagilardan birini tanlang:`,
 
-                                [
-                                    {
-                                        text:
-                                            "➕ Karta qo'shish"
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            "✏️ Karta o'zgartirish"
-                                    },
-
-                                    {
-                                        text:
-                                            "🗑 Karta o'chirish"
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            "🔙 Admin panel"
-                                    }
-                                ]
-
-                            ],
-
-                            resize_keyboard:
-                                true
-                        }
+                        cardKeyboard()
                     );
 
                     return;
                 }
 
-                // ==================================
                 // KARTA QO'SHISH
-                // ==================================
-
                 if (
-                    text ===
-                    "➕ Karta qo'shish" ||
-                    text ===
-                    "✏️ Karta o'zgartirish"
+                    text === "➕ Karta qo'shish" ||
+                    text === "✏️ Karta o'zgartirish"
                 ) {
 
                     adminStates.set(
@@ -1292,50 +1008,36 @@ ${data.card || "❌ Karta kiritilmagan"}`,
 Karta raqamini yuboring.
 
 Masalan:
-
 8600 1234 5678 9012`
                     );
 
                     return;
                 }
 
-                // ==================================
                 // KARTA O'CHIRISH
-                // ==================================
-
                 if (
-                    text ===
-                    "🗑 Karta o'chirish"
+                    text === "🗑 Karta o'chirish"
                 ) {
 
                     const data =
                         loadData();
 
-                    data.card =
-                        "";
+                    data.card = "";
 
-                    saveData(
-                        data
-                    );
+                    saveData(data);
 
                     await sendMessage(
                         chatId,
-
-`✅ Karta o'chirildi!`,
-
-                        adminKeyboard()
+                        "✅ Karta o'chirildi!",
+                        cardKeyboard()
                     );
 
                     return;
                 }
 
-                // ==================================
                 // ADMIN PANEL
-                // ==================================
-
                 if (
-                    text ===
-                    "🔙 Admin panel"
+                    text === "🔙 Admin panel"
                 ) {
 
                     adminStates.delete(
@@ -1349,270 +1051,10 @@ Masalan:
                     return;
                 }
 
-                // ==================================
-                // LINKLAR
-                // ==================================
-
-                if (
-                    text ===
-                    "🔗 Linklar"
-                ) {
-
-                    adminStates.delete(
-                        userId
-                    );
-
-                    const data =
-                        loadData();
-
-                    let list =
-                        "🔗 BOT LINKLARI\n\n";
-
-                    if (
-                        data.links.length ===
-                        0
-                    ) {
-
-                        list +=
-                            "❌ Link yo'q.";
-
-                    } else {
-
-                        data.links.forEach(
-                            (
-                                item,
-                                index
-                            ) => {
-
-                                list +=
-                                    `${index + 1}. ${item.name}\n`;
-
-                                list +=
-                                    `${item.link}\n\n`;
-                            }
-                        );
-                    }
-
-                    await sendMessage(
-                        chatId,
-                        list,
-
-                        {
-                            keyboard: [
-
-                                [
-                                    {
-                                        text:
-                                            "➕ Link qo'shish"
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            "✏️ Link o'zgartirish"
-                                    },
-
-                                    {
-                                        text:
-                                            "🗑 Link o'chirish"
-                                    }
-                                ],
-
-                                [
-                                    {
-                                        text:
-                                            "🔙 Admin panel"
-                                    }
-                                ]
-
-                            ],
-
-                            resize_keyboard:
-                                true
-                        }
-                    );
-
-                    return;
-                }
-
-                // ==================================
-                // LINK QO'SHISH
-                // ==================================
-
-                if (
-                    text ===
-                    "➕ Link qo'shish"
-                ) {
-
-                    adminStates.set(
-                        userId,
-                        {
-                            action:
-                                "ADD_LINK"
-                        }
-                    );
-
-                    await sendMessage(
-                        chatId,
-
-`➕ LINK QO'SHISH
-
-Shunday yozing:
-
-Nomi | Link
-
-Masalan:
-
-📢 Telegram | https://t.me/kanal
-
-❌ Bekor qilish:
- /admin`
-                    );
-
-                    return;
-                }
-
-                // ==================================
-                // LINK O'ZGARTIRISH
-                // ==================================
-
-                if (
-                    text ===
-                    "✏️ Link o'zgartirish"
-                ) {
-
-                    const data =
-                        loadData();
-
-                    if (
-                        data.links.length ===
-                        0
-                    ) {
-
-                        await sendMessage(
-                            chatId,
-                            "❌ Link yo'q.",
-                            adminKeyboard()
-                        );
-
-                        return;
-                    }
-
-                    let list =
-                        "✏️ LINK O'ZGARTIRISH\n\n";
-
-                    data.links.forEach(
-                        (
-                            item,
-                            index
-                        ) => {
-
-                            list +=
-                                `${index + 1}. ${item.name}\n`;
-
-                            list +=
-                                `${item.link}\n\n`;
-                        }
-                    );
-
-                    list += `
-
-Format:
-
-Raqam | Yangi nom | Yangi link
-
-Masalan:
-
-1 | 📢 Telegram | https://t.me/kanal`;
-
-                    adminStates.set(
-                        userId,
-                        {
-                            action:
-                                "EDIT_LINK"
-                        }
-                    );
-
-                    await sendMessage(
-                        chatId,
-                        list
-                    );
-
-                    return;
-                }
-
-                // ==================================
-                // LINK O'CHIRISH
-                // ==================================
-
-                if (
-                    text ===
-                    "🗑 Link o'chirish"
-                ) {
-
-                    const data =
-                        loadData();
-
-                    if (
-                        data.links.length ===
-                        0
-                    ) {
-
-                        await sendMessage(
-                            chatId,
-                            "❌ Link yo'q.",
-                            adminKeyboard()
-                        );
-
-                        return;
-                    }
-
-                    let list =
-                        "🗑 LINK O'CHIRISH\n\n";
-
-                    data.links.forEach(
-                        (
-                            item,
-                            index
-                        ) => {
-
-                            list +=
-                                `${index + 1}. ${item.name}\n`;
-                        }
-                    );
-
-                    list +=
-                        "\nRaqamini yuboring.\nMasalan: 1";
-
-                    adminStates.set(
-                        userId,
-                        {
-                            action:
-                                "DELETE_LINK"
-                        }
-                    );
-
-                    await sendMessage(
-                        chatId,
-                        list
-                    );
-
-                    return;
-                }
-
-                // ==================================
                 // STATISTIKA
-                // ==================================
-
                 if (
-                    text ===
-                    "📊 Statistika"
+                    text === "📊 Statistika"
                 ) {
-
-                    adminStates.delete(
-                        userId
-                    );
 
                     const data =
                         loadData();
@@ -1622,24 +1064,20 @@ Masalan:
 
 `📊 BOT STATISTIKASI
 
-👥 Jami foydalanuvchilar:
+👥 Foydalanuvchilar:
 ${data.users.length}
 
 ▶️ Jami /start:
 ${data.totalStarts}
 
-🔗 Linklar:
-${data.links.length}
-
 💳 Karta:
-${data.card
-    ? "✅ Bor"
-    : "❌ Yo'q"}
+${data.card ? "✅ Bor" : "❌ Yo'q"}
 
-👑 VIP link:
-${data.vipLink
-    ? "✅ Bor"
-    : "❌ Yo'q"}
+👑 VIP nomi:
+${data.vipName}
+
+🔗 VIP link:
+${data.vipLink ? "✅ Bor" : "❌ Yo'q"}
 
 🤖 Bot:
 ✅ Ishlayapti`,
@@ -1650,13 +1088,9 @@ ${data.vipLink
                     return;
                 }
 
-                // ==================================
-                // XABAR YUBORISH
-                // ==================================
-
+                // BROADCAST
                 if (
-                    text ===
-                    "📨 Xabar yuborish"
+                    text === "📨 Xabar yuborish"
                 ) {
 
                     adminStates.set(
@@ -1674,36 +1108,29 @@ ${data.vipLink
 
 Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
 
-❌ Bekor qilish:
+Bekor qilish:
  /admin`
                     );
 
                     return;
                 }
 
-                // ==================================
+                // ===================
                 // ADMIN STATE
-                // ==================================
+                // ===================
 
                 const state =
-                    adminStates.get(
-                        userId
-                    );
+                    adminStates.get(userId);
 
                 if (
                     state &&
-                    !text.startsWith(
-                        "/"
-                    )
+                    !text.startsWith("/")
                 ) {
 
                     const data =
                         loadData();
 
-                    // ==================================
-                    // VIP NOM
-                    // ==================================
-
+                    // VIP NOMI
                     if (
                         state.action ===
                         "VIP_NAME"
@@ -1712,9 +1139,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         data.vipName =
                             text;
 
-                        saveData(
-                            data
-                        );
+                        saveData(data);
 
                         adminStates.delete(
                             userId
@@ -1733,10 +1158,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         return;
                     }
 
-                    // ==================================
                     // VIP LINK
-                    // ==================================
-
                     if (
                         state.action ===
                         "VIP_LINK"
@@ -1762,9 +1184,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         data.vipLink =
                             text;
 
-                        saveData(
-                            data
-                        );
+                        saveData(data);
 
                         adminStates.delete(
                             userId
@@ -1783,10 +1203,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         return;
                     }
 
-                    // ==================================
                     // KARTA
-                    // ==================================
-
                     if (
                         state.action ===
                         "CARD"
@@ -1795,9 +1212,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         data.card =
                             text;
 
-                        saveData(
-                            data
-                        );
+                        saveData(data);
 
                         adminStates.delete(
                             userId
@@ -1816,10 +1231,7 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                         return;
                     }
 
-                    // ==================================
-                    // XABAR
-                    // ==================================
-
+                    // BROADCAST
                     if (
                         state.action ===
                         "BROADCAST"
@@ -1829,219 +1241,43 @@ Barcha foydalanuvchilarga yuboriladigan xabarni yozing.
                             userId
                         );
 
-                        await sendMessage(
-                            chatId,
-                            "⏳ Xabar yuborilmoqda..."
-                        );
+                        let success = 0;
 
-                        await broadcastMessage(
-                            chatId,
-                            text
-                        );
+                        for (
+                            const user of data.users
+                        ) {
 
-                        return;
-                    }
+                            try {
 
-                    // ==================================
-                    // LINK QO'SHISH
-                    // ==================================
-
-                    if (
-                        state.action ===
-                        "ADD_LINK"
-                    ) {
-
-                        const parts =
-                            text
-                                .split("|")
-                                .map(
-                                    x =>
-                                        x.trim()
+                                await sendMessage(
+                                    user.id,
+                                    text
                                 );
 
-                        if (
-                            parts.length <
-                            2
-                        ) {
+                                success++;
 
-                            await sendMessage(
-                                chatId,
-
-`❌ Format xato!
-
-Nomi | Link
-
-Masalan:
-
-📢 Kanal | https://t.me/kanal`
-                            );
-
-                            return;
-                        }
-
-                        data.links.push({
-
-                            name:
-                                parts[0],
-
-                            link:
-                                parts[1]
-                        });
-
-                        saveData(
-                            data
-                        );
-
-                        adminStates.delete(
-                            userId
-                        );
-
-                        await sendMessage(
-                            chatId,
-                            "✅ Link qo'shildi!",
-                            adminKeyboard()
-                        );
-
-                        return;
-                    }
-
-                    // ==================================
-                    // LINK O'CHIRISH
-                    // ==================================
-
-                    if (
-                        state.action ===
-                        "DELETE_LINK"
-                    ) {
-
-                        const index =
-                            Number(
-                                text
-                            ) - 1;
-
-                        if (
-                            !Number.isInteger(
-                                index
-                            ) ||
-                            index < 0 ||
-                            index >=
-                                data.links.length
-                        ) {
-
-                            await sendMessage(
-                                chatId,
-                                "❌ Raqam noto'g'ri."
-                            );
-
-                            return;
-                        }
-
-                        const deleted =
-                            data.links.splice(
-                                index,
-                                1
-                            )[0];
-
-                        saveData(
-                            data
-                        );
-
-                        adminStates.delete(
-                            userId
-                        );
-
-                        await sendMessage(
-                            chatId,
-
-`🗑 Link o'chirildi!
-
-${deleted.name}`,
-
-                            adminKeyboard()
-                        );
-
-                        return;
-                    }
-
-                    // ==================================
-                    // LINK O'ZGARTIRISH
-                    // ==================================
-
-                    if (
-                        state.action ===
-                        "EDIT_LINK"
-                    ) {
-
-                        const parts =
-                            text
-                                .split("|")
-                                .map(
-                                    x =>
-                                        x.trim()
+                                await new Promise(
+                                    resolve =>
+                                        setTimeout(
+                                            resolve,
+                                            80
+                                        )
                                 );
 
-                        if (
-                            parts.length <
-                            3
-                        ) {
-
-                            await sendMessage(
-                                chatId,
-
-`❌ Format xato!
-
-Raqam | Yangi nom | Yangi link
-
-Masalan:
-
-1 | 📢 Kanal | https://t.me/kanal`
-                            );
-
-                            return;
+                            } catch (error) {}
                         }
-
-                        const index =
-                            Number(
-                                parts[0]
-                            ) - 1;
-
-                        if (
-                            !Number.isInteger(
-                                index
-                            ) ||
-                            index < 0 ||
-                            index >=
-                                data.links.length
-                        ) {
-
-                            await sendMessage(
-                                chatId,
-                                "❌ Raqam noto'g'ri."
-                            );
-
-                            return;
-                        }
-
-                        data.links[index] = {
-
-                            name:
-                                parts[1],
-
-                            link:
-                                parts[2]
-                        };
-
-                        saveData(
-                            data
-                        );
-
-                        adminStates.delete(
-                            userId
-                        );
 
                         await sendMessage(
                             chatId,
-                            "✅ Link o'zgartirildi!",
+
+`✅ XABAR YUBORILDI!
+
+👥 Jami:
+${data.users.length}
+
+✅ Yetib bordi:
+${success}`,
+
                             adminKeyboard()
                         );
 
@@ -2050,9 +1286,9 @@ Masalan:
                 }
             }
 
-            // ==================================
-            // RASM / CHEK
-            // ==================================
+            // ===========================
+            // CHEK RASMI
+            // ===========================
 
             if (
                 msg.photo &&
@@ -2075,29 +1311,27 @@ Masalan:
                             msg.photo.length - 1
                         ];
 
-                    const data =
-                        loadData();
-
                     const user = {
 
                         id:
                             userId,
 
                         first_name:
-                            msg.from.first_name ||
-                            "",
+                            msg.from.first_name || "",
 
                         username:
-                            msg.from.username ||
-                            ""
+                            msg.from.username || ""
                     };
 
                     try {
 
                         await sendReceiptToAdmin(
                             user,
+
                             photo.file_id,
+
                             state.tarifName,
+
                             state.price
                         );
 
@@ -2108,16 +1342,16 @@ Masalan:
                         await sendMessage(
                             chatId,
 
-`✅ Chekingiz adminga yuborildi!
+`✅ CHEK QABUL QILINDI!
 
-⏳ Admin tekshiradi.
+Chekingiz adminning shaxsiy chatiga yuborildi.
 
-Tasdiqlangandan keyin VIP kanalga kirish linki yuboriladi.`
+⏳ Admin to'lovni tekshiradi.
+
+Tasdiqlangandan keyin VIP kanal linki yuboriladi.`
                         );
 
-                    } catch (
-                        error
-                    ) {
+                    } catch (error) {
 
                         console.log(
                             "❌ CHEK XATOSI:",
@@ -2126,7 +1360,7 @@ Tasdiqlangandan keyin VIP kanalga kirish linki yuboriladi.`
 
                         await sendMessage(
                             chatId,
-                            "❌ Chekni yuborishda xatolik bo'ldi. Qayta urinib ko'ring."
+                            "❌ Chek yuborilmadi. Qayta urinib ko'ring."
                         );
                     }
 
@@ -2134,10 +1368,7 @@ Tasdiqlangandan keyin VIP kanalga kirish linki yuboriladi.`
                 }
             }
 
-            // ==================================
-            // TO'LOV MATNI
-            // ==================================
-
+            // MATN YUBORSA
             if (
                 !isAdmin(userId)
             ) {
@@ -2156,9 +1387,9 @@ Tasdiqlangandan keyin VIP kanalga kirish linki yuboriladi.`
                     await sendMessage(
                         chatId,
 
-`📸 Iltimos, chekni rasm qilib yuboring.
+`📸 Iltimos, chekni RASM qilib yuboring.
 
-Oddiy matn emas, chek rasmini yuboring.`
+Oddiy matn yubormang.`
                     );
 
                     return;
@@ -2168,9 +1399,9 @@ Oddiy matn emas, chek rasmini yuboring.`
             return;
         }
 
-        // ==================================
+        // ===========================
         // CALLBACK
-        // ==================================
+        // ===========================
 
         if (
             update.callback_query
@@ -2188,6 +1419,13 @@ Oddiy matn emas, chek rasmini yuboring.`
             const userId =
                 query.from.id;
 
+            console.log(
+                "🔘 CALLBACK:",
+                action,
+                "USER:",
+                userId
+            );
+
             try {
 
                 await telegram(
@@ -2198,17 +1436,17 @@ Oddiy matn emas, chek rasmini yuboring.`
                     }
                 );
 
-            } catch (
-                error
-            ) {}
+            } catch (error) {
 
-            // ==================================
+                console.log(
+                    "❌ CALLBACK:",
+                    error.message
+                );
+            }
+
             // VIP
-            // ==================================
-
             if (
-                action ===
-                "VIP"
+                action === "VIP"
             ) {
 
                 await showVip(
@@ -2218,10 +1456,7 @@ Oddiy matn emas, chek rasmini yuboring.`
                 return;
             }
 
-            // ==================================
             // ORQAGA
-            // ==================================
-
             if (
                 action ===
                 "BACK_MENU"
@@ -2234,10 +1469,7 @@ Oddiy matn emas, chek rasmini yuboring.`
                 return;
             }
 
-            // ==================================
             // TARIF
-            // ==================================
-
             if (
                 action.startsWith(
                     "TARIF_"
@@ -2249,9 +1481,12 @@ Oddiy matn emas, chek rasmini yuboring.`
                         action
                     );
 
-                if (
-                    !tarif
-                ) {
+                if (!tarif) {
+
+                    await sendMessage(
+                        chatId,
+                        "❌ Tarif topilmadi."
+                    );
 
                     return;
                 }
@@ -2265,13 +1500,9 @@ Oddiy matn emas, chek rasmini yuboring.`
                 return;
             }
 
-            // ==================================
             // TO'LADIM
-            // ==================================
-
             if (
-                action ===
-                "PAID"
+                action === "PAID"
             ) {
 
                 const state =
@@ -2288,7 +1519,7 @@ Oddiy matn emas, chek rasmini yuboring.`
                     await sendMessage(
                         chatId,
 
-`❌ Avval tarifni tanlang.`
+                        "❌ Avval tarifni tanlang."
                     );
 
                     return;
@@ -2315,10 +1546,7 @@ Oddiy matn emas, chek rasmini yuboring.`
                 return;
             }
 
-            // ==================================
-            // ADMIN TASDIQLASH
-            // ==================================
-
+            // TASDIQLASH
             if (
                 action.startsWith(
                     "APPROVE_"
@@ -2328,7 +1556,6 @@ Oddiy matn emas, chek rasmini yuboring.`
                 if (
                     !isAdmin(userId)
                 ) {
-
                     return;
                 }
 
@@ -2341,16 +1568,14 @@ Oddiy matn emas, chek rasmini yuboring.`
                 const data =
                     loadData();
 
-                if (
-                    !data.vipLink
-                ) {
+                if (!data.vipLink) {
 
                     await sendMessage(
                         chatId,
 
-`❌ VIP kanal linki hali sozlanmagan!
+`❌ VIP kanal linki sozlanmagan!
 
-Admin panel → 👑 VIP kanal → 🔗 VIP link orqali qo'shing.`
+Admin panel → 👑 VIP kanal → 🔗 VIP link`
                     );
 
                     return;
@@ -2375,7 +1600,7 @@ Marhamat, kanalga qo'shiling ❤️`
                     await sendMessage(
                         chatId,
 
-`✅ To'lov tasdiqlandi.
+`✅ TO'LOV TASDIQLANDI!
 
 👤 User ID:
 ${targetId}
@@ -2385,9 +1610,7 @@ ${targetId}
                         adminKeyboard()
                     );
 
-                } catch (
-                    error
-                ) {
+                } catch (error) {
 
                     await sendMessage(
                         chatId,
@@ -2402,10 +1625,7 @@ ${error.message}`
                 return;
             }
 
-            // ==================================
             // RAD ETISH
-            // ==================================
-
             if (
                 action.startsWith(
                     "REJECT_"
@@ -2415,7 +1635,6 @@ ${error.message}`
                 if (
                     !isAdmin(userId)
                 ) {
-
                     return;
                 }
 
@@ -2434,14 +1653,10 @@ ${error.message}`
 
 Chek tasdiqlanmadi.
 
-Iltimos, to'lov chekini qayta yuboring yoki admin bilan bog'laning.
-
-📩 @yakhubov_004`
+Iltimos, to'lov chekini qayta yuboring.`
                     );
 
-                } catch (
-                    error
-                ) {}
+                } catch (error) {}
 
                 await sendMessage(
                     chatId,
@@ -2460,9 +1675,7 @@ ${targetId}`,
             return;
         }
 
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         console.log(
             "❌ UPDATE XATOSI:",
@@ -2475,17 +1688,16 @@ ${targetId}`,
     }
 }
 
-// ========================================
+// ===============================
 // SERVER
-// ========================================
+// ===============================
 
 const server =
     http.createServer(
         (req, res) => {
 
             if (
-                req.method ===
-                "GET"
+                req.method === "GET"
             ) {
 
                 res.writeHead(
@@ -2504,10 +1716,8 @@ const server =
             }
 
             if (
-                req.method ===
-                    "POST" &&
-                req.url ===
-                    WEBHOOK_PATH
+                req.method === "POST" &&
+                req.url === WEBHOOK_PATH
             ) {
 
                 let body = "";
@@ -2515,7 +1725,6 @@ const server =
                 req.on(
                     "data",
                     chunk => {
-
                         body +=
                             chunk.toString();
                     }
@@ -2528,9 +1737,7 @@ const server =
                         try {
 
                             const update =
-                                JSON.parse(
-                                    body
-                                );
+                                JSON.parse(body);
 
                             res.writeHead(
                                 200,
@@ -2540,17 +1747,13 @@ const server =
                                 }
                             );
 
-                            res.end(
-                                "OK"
-                            );
+                            res.end("OK");
 
                             await processUpdate(
                                 update
                             );
 
-                        } catch (
-                            error
-                        ) {
+                        } catch (error) {
 
                             console.log(
                                 "❌ WEBHOOK XATO:",
@@ -2576,19 +1779,14 @@ const server =
                 return;
             }
 
-            res.writeHead(
-                404
-            );
-
-            res.end(
-                "Not found"
-            );
+            res.writeHead(404);
+            res.end("Not found");
         }
     );
 
-// ========================================
-// SERVER START
-// ========================================
+// ===============================
+// START SERVER
+// ===============================
 
 server.listen(
     PORT,
@@ -2641,9 +1839,7 @@ server.listen(
                 "================================"
             );
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             console.log(
                 "❌ WEBHOOK XATOSI:",
@@ -2653,9 +1849,9 @@ server.listen(
     }
 );
 
-// ========================================
-// XATOLARNI USHLASH
-// ========================================
+// ===============================
+// XATOLAR
+// ===============================
 
 process.on(
     "uncaughtException",
