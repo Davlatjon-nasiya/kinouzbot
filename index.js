@@ -131,7 +131,7 @@ function saveData(data) {
 }
 
 // ========================================
-// ADMIN TEKSHIRISH
+// ADMIN
 // ========================================
 
 function isAdmin(userId) {
@@ -251,7 +251,6 @@ function telegram(method, data) {
         );
 
         req.write(body);
-
         req.end();
     });
 }
@@ -272,9 +271,7 @@ async function sendMessage(
     };
 
     if (keyboard) {
-
-        data.reply_markup =
-            keyboard;
+        data.reply_markup = keyboard;
     }
 
     return telegram(
@@ -388,6 +385,11 @@ function adminKeyboard() {
                 {
                     text:
                         "🗑 Link o'chirish"
+                },
+
+                {
+                    text:
+                        "📨 Xabar yuborish"
                 }
             ]
 
@@ -410,9 +412,9 @@ async function adminPanel(chatId) {
     await sendMessage(
         chatId,
 
-        `👨‍💼 ADMIN PANEL
+`👨‍💼 ADMIN PANEL
 
-Kerakli bo'limni tanlang 👇`,
+Kerakli bo‘limni tanlang 👇`,
 
         adminKeyboard()
     );
@@ -429,12 +431,12 @@ async function showChannels(chatId) {
 
 `👋 Assalomu alaykum!
 
-🤖 Botdan foydalanish uchun quyidagi sahifalarga obuna bo'ling 👇
+🤖 Botdan foydalanish uchun quyidagi sahifalarga obuna bo‘ling 👇
 
-📢 Telegram kanalga obuna bo'ling
-📸 Instagram sahifalarga obuna bo'ling
+📢 Telegram kanalga obuna bo‘ling
+📸 Instagram sahifalarga obuna bo‘ling
 
-Hammasiga obuna bo'lgach:
+Hammasiga obuna bo‘lgach:
 
 ✅ "Tekshirish" tugmasini bosing.`,
 
@@ -443,7 +445,7 @@ Hammasiga obuna bo'lgach:
 }
 
 // ========================================
-// ADMIN LINKLARINI KO'RSATISH
+// ADMIN LINKLAR
 // ========================================
 
 async function showAdminLinks(chatId) {
@@ -483,7 +485,77 @@ async function showAdminLinks(chatId) {
 }
 
 // ========================================
-// UPDATE ISHLASH
+// BARCHA USERLARGA XABAR YUBORISH
+// ========================================
+
+async function broadcastMessage(
+    adminChatId,
+    messageText
+) {
+
+    const data =
+        loadData();
+
+    let sent = 0;
+    let failed = 0;
+
+    console.log(
+        `📨 XABAR YUBORILMOQDA: ${data.users.length} ta user`
+    );
+
+    for (
+        const user of data.users
+    ) {
+
+        try {
+
+            await sendMessage(
+                user.id,
+                messageText
+            );
+
+            sent++;
+
+            // Telegram limitiga urilmasligi uchun
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        50
+                    )
+            );
+
+        } catch (error) {
+
+            failed++;
+
+            console.log(
+                `❌ ${user.id} ga yuborilmadi:`,
+                error.message
+            );
+        }
+    }
+
+    await sendMessage(
+        adminChatId,
+
+`✅ XABAR YUBORILDI!
+
+👥 Jami user:
+${data.users.length}
+
+✅ Yetib bordi:
+${sent}
+
+❌ Yetib bormadi:
+${failed}`,
+
+        adminKeyboard()
+    );
+}
+
+// ========================================
+// UPDATE
 // ========================================
 
 async function processUpdate(update) {
@@ -535,7 +607,7 @@ async function processUpdate(update) {
             ) {
 
                 console.log(
-                    "👨‍💼 /admin BUYRUG'I"
+                    "👨‍💼 /admin"
                 );
 
                 console.log(
@@ -552,10 +624,6 @@ async function processUpdate(update) {
                     !isAdmin(userId)
                 ) {
 
-                    console.log(
-                        "❌ ADMIN EMAS"
-                    );
-
                     await sendMessage(
                         chatId,
                         "❌ Siz admin emassiz."
@@ -563,10 +631,6 @@ async function processUpdate(update) {
 
                     return;
                 }
-
-                console.log(
-                    "✅ ADMIN TASDIQLANDI"
-                );
 
                 adminStates.delete(
                     userId
@@ -586,6 +650,45 @@ async function processUpdate(update) {
             if (
                 isAdmin(userId)
             ) {
+
+                // ==================================
+                // XABAR YUBORISH
+                // ==================================
+
+                if (
+                    text === "📨 Xabar yuborish"
+                ) {
+
+                    adminStates.set(
+                        userId,
+                        {
+                            action:
+                                "BROADCAST"
+                        }
+                    );
+
+                    await sendMessage(
+                        chatId,
+
+`📨 XABAR YUBORISH
+
+Barcha bot foydalanuvchilariga yubormoqchi bo‘lgan xabaringizni yozing.
+
+Masalan:
+
+🔥 Yangi chegirmalar boshlandi!
+
+📱 iPhone va Samsung telefonlar mavjud.
+
+📞 Murojaat uchun: +998 XX XXX XX XX
+
+❌ Bekor qilish uchun /admin yozing.`,
+
+                        adminKeyboard()
+                    );
+
+                    return;
+                }
 
                 // ==================================
                 // LINKLAR
@@ -823,6 +926,35 @@ Masalan:
                     !text.startsWith("/")
                 ) {
 
+                    // ==================================
+                    // BARCHAGA XABAR
+                    // ==================================
+
+                    if (
+                        state.action ===
+                        "BROADCAST"
+                    ) {
+
+                        adminStates.delete(
+                            userId
+                        );
+
+                        await sendMessage(
+                            chatId,
+
+`⏳ Xabar yuborilmoqda...
+
+Iltimos, kuting.`
+                        );
+
+                        await broadcastMessage(
+                            chatId,
+                            text
+                        );
+
+                        return;
+                    }
+
                     const data =
                         loadData();
 
@@ -866,8 +998,6 @@ Masalan:
                             return;
                         }
 
-                        // LINK TEKSHIRISH
-
                         if (
                             !parts[1].startsWith(
                                 "http://"
@@ -882,17 +1012,14 @@ Masalan:
 
 `❌ Link noto'g'ri.
 
-Link https:// bilan boshlanishi kerak.
-
-Masalan:
-
-📢 Kanal | https://t.me/kanal`
+https:// bilan boshlanishi kerak.`
                             );
 
                             return;
                         }
 
                         data.links.push({
+
                             name:
                                 parts[0],
 
@@ -1054,10 +1181,7 @@ Masalan:
 
                             await sendMessage(
                                 chatId,
-
-`❌ Link noto'g'ri.
-
-https:// bilan boshlanishi kerak.`
+                                "❌ Link noto'g'ri."
                             );
 
                             return;
@@ -1165,7 +1289,7 @@ ${parts[2]}`,
         }
 
         // ==================================
-        // TUGMA CALLBACK
+        // CALLBACK
         // ==================================
 
         if (
@@ -1180,31 +1304,6 @@ ${parts[2]}`,
 
             const chatId =
                 query.message.chat.id;
-
-            const userId =
-                query.from.id;
-
-            console.log(
-                "================================"
-            );
-
-            console.log(
-                "🔘 CALLBACK:",
-                action
-            );
-
-            console.log(
-                "👤 USER:",
-                userId
-            );
-
-            console.log(
-                "================================"
-            );
-
-            // ==================================
-            // CALLBACK YOPISH
-            // ==================================
 
             try {
 
@@ -1265,7 +1364,7 @@ Iltimos, yuqoridagi barcha havolalarga o'tib chiqing 👇`
 }
 
 // ========================================
-// RENDER SERVER
+// SERVER
 // ========================================
 
 const server =
@@ -1335,8 +1434,6 @@ const server =
                                     body
                                 );
 
-                            // Telegramga tez javob
-
                             res.writeHead(
                                 200,
                                 {
@@ -1348,8 +1445,6 @@ const server =
                             res.end(
                                 "OK"
                             );
-
-                            // Update ishlash
 
                             await processUpdate(
                                 update
